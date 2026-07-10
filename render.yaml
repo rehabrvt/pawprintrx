@@ -1,0 +1,36 @@
+# Render "Blueprint" spec for the FastAPI backend. Optional convenience --
+# you can also just create the Web Service by hand in Render's dashboard
+# using the same build/start commands. See render.yaml docs:
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: pawprintrx-backend
+    runtime: python
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGO_URL
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: STORAGE_BACKEND
+        value: local
+      # Add any of the optional vars from backend/.env.example here as needed
+      # (GOOGLE_CLIENT_ID, RESEND_API_KEY, EZYVET_*, MS_*, S3_*, etc.)
+    # If using STORAGE_BACKEND=local, uncomment this so uploaded files survive
+    # restarts/redeploys (Render's default disk is ephemeral). Then set
+    # LOCAL_STORAGE_DIR=/var/data/uploads as an env var above.
+    # disk:
+    #   name: uploads
+    #   mountPath: /var/data
+    #   sizeGB: 1

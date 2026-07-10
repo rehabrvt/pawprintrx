@@ -1,0 +1,99 @@
+{
+  "theme": "light",
+  "archetype": "Organic & Earthy",
+  "domain_context": "Canine Rehab / Veterinary Health SaaS",
+  "design_philosophy": "Warm, tactile, and compassionate. Avoid cold clinical blues and sterile greys. The platform must feel like a high-end boutique physical therapy clinic. For clinicians: clarity and trust. For pet owners: encouragement and approachability.",
+  "typography": {
+    "font_family_headings": "Cabinet Grotesk, Outfit, sans-serif",
+    "font_family_body": "Manrope, sans-serif",
+    "hierarchy_rules": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-bold",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-semibold",
+      "h3": "text-xl sm:text-2xl font-medium",
+      "body": "text-base leading-relaxed text-slate-700",
+      "label": "text-xs tracking-[0.2em] uppercase font-bold text-slate-500"
+    },
+    "banned_fonts": ["Inter", "Roboto", "Open Sans", "Syne"]
+  },
+  "color_palette": {
+    "background": "#FAF9F6",
+    "foreground": "#1A1A1A",
+    "primary": "#C96A52",
+    "primary_hover": "#B35A44",
+    "primary_foreground": "#FFFFFF",
+    "secondary": "#E8E2D9",
+    "secondary_foreground": "#2C312E",
+    "muted": "#F3F0EB",
+    "muted_foreground": "#787672",
+    "border": "#E2DFD8",
+    "card": "#FFFFFF",
+    "card_foreground": "#1A1A1A",
+    "accent_success": "#5B7566",
+    "accent_warning": "#D4A373",
+    "banned_colors": ["#1B93A4", "#9D4CDD", "Generic Medical Blue", "Pure White #FFFFFF for app background"]
+  },
+  "spacing_and_layout": {
+    "scale": "Generous spacing. Use p-6, p-8, and p-12 extensively. Avoid cramped UI.",
+    "container_padding": "p-6 md:p-12",
+    "grid_strategy": {
+      "clinician_dashboard": "Mode B (Control Room Grid). Tight gap-6, pure flat cards. No messy staggered heights for data.",
+      "owner_portal": "Mobile-first, stacked bento style. gap-4, large tap targets (min 48px height)."
+    },
+    "border_radius": "rounded-2xl or rounded-3xl for cards. Inner elements rounded-xl to maintain concentricity."
+  },
+  "surfaces_and_shadows": {
+    "cards": "Flat background (bg-card), 1px subtle border (border-border), NO heavy shadows. Clean, grounded look.",
+    "hover_state": "-translate-y-1 transition-transform duration-200 ease-out shadow-lg",
+    "glassmorphism": "Avoid in clinical areas to prevent visual refraction. Use flat solid backgrounds."
+  },
+  "components": {
+    "buttons": "Pill-shaped (rounded-full) or large radius (rounded-xl). Primary buttons use Terracotta (#C96A52). Explicit hover states (e.g., hover:bg-[#B35A44]).",
+    "inputs": "Shadcn UI, highly customized: bg-[#F3F0EB], border-transparent, focus:border-[#C96A52] focus:ring-1 focus:ring-[#C96A52].",
+    "tags_badges": "Soft backgrounds (e.g., bg-[#E8E2D9] text-[#2C312E]) for condition tags or breed.",
+    "icons": "Use @phosphor-icons/react (Duotone or Regular weight). They feel more premium and approachable than Lucide."
+  },
+  "motion_and_interactions": {
+    "page_transitions": "Subtle fade-in and slide-up (framer-motion).",
+    "micro_interactions": "Active states must have clear contrast. Hover states shift background color by 10% lightness.",
+    "accessibility": "Always respect prefers-reduced-motion. High contrast focus rings mandatory."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1644675443401-ea4c14bad0e6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwyfHx2ZXRlcmluYXJpYW4lMjBkb2d8ZW58MHx8fHwxNzc3OTIxMzQxfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Veterinarian with dog. Use for Landing Page Hero or Clinician Dashboard Welcome.",
+        "category": "hero"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1620020488421-3f890d36d6c1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwyfHxkb2clMjBwaHlzaWNhbCUyMHRoZXJhcHl8ZW58MHx8fHwxNzc3OTIxMzI5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Brown and white border collie mix. Use for Patient Profile placeholder or Owner Portal Hero.",
+        "category": "profile_hero"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1673090636169-b350442211b4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwzfHxoYXBweSUyMGhlYWx0aHklMjBkb2d8ZW58MHx8fHwxNzc3OTIxMzI5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Happy shaggy dog in grass. Use for Success states, empty states, or completed exercise log.",
+        "category": "success_state"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1727534240947-db4a9b78f4ce?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwyfHxoYXBweSUyMGhlYWx0aHklMjBkb2d8ZW58MHx8fHwxNzc3OTIxMzI5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Black dog running in field. Use for exercise library generic placeholder.",
+        "category": "exercise_placeholder"
+      }
+    ],
+    "treatment": "Images must have max opacity black/30 overlay if text is overlaid. Soft rounded corners (rounded-2xl) matching the UI."
+  },
+  "testing": {
+    "requirements": "All interactive and key informational elements MUST include a data-testid attribute (e.g., data-testid='login-submit-button')."
+  },
+  "instructions_to_main_agent": [
+    "Install required dependencies: yarn add @phosphor-icons/react framer-motion clsx tailwind-merge",
+    "Update tailwind.config.js to use the specified Organic & Earthy color variables, overriding the default Shadcn greys. Map them to the HSL values natively expected by Shadcn.",
+    "Add 'Cabinet Grotesk' (via Fontshare CDN) and 'Manrope' (via Google Fonts). Implement font-family classes in Tailwind.",
+    "Build the Clinician Dashboard with a fixed left sidebar and a dense but well-padded Mode B grid.",
+    "Build the Owner Portal mobile-first with large tap targets and encouraging typography.",
+    "Ensure the Exercise Library uses Shadcn Cards, heavily customized to remove shadows and add 1px borders.",
+    "Do NOT use generic medical blue. Use the Terracotta (#C96A52) primary color.",
+    "Never use placeholder image services (like via.placeholder.com). Use the exact URLs provided in the media section.",
+    "Ensure data-testid attributes are thoroughly applied."
+  ]
+}
