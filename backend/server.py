@@ -441,27 +441,59 @@ async def forgot_password(payload: ForgotPasswordIn, request: Request):
 
 
 @api.post("/auth/reset-password")
+@api.post("/auth/reset-password")
 async def reset_password(payload: ResetPasswordIn):
-    record = await db.password_reset_tokens.find_one({"token": payload.token, "used": False})
+    record = await db.password_reset_tokens.find_one(
+        {"token": payload.token, "used": False}
+    )
+
     if not record:
-        raise HTTPException(400, "This reset link is invalid or has already been used.")
+        raise HTTPException(
+            status_code=400,
+            detail="This reset link is invalid or has already been used.",
+        )
+
     expires_at = datetime.fromisoformat(record["expires_at"])
+
     if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(400, "This reset link has expired. Please request a new one.")
+        raise HTTPException(
+            status_code=400,
+            detail="This reset link has expired. Please request a new one.",
+        )
+
     await db.users.update_one(
         {"user_id": record["user_id"]},
         {"$set": {"password_hash": hash_pw(payload.new_password)}},
     )
-    await db.password_reset_tokens.update_one({"token": payload.token}, {"$set": {"used": True}})
-    return {"ok": True, "message": "Password updated. You can now log in."}
-    async def _is_clinician_role_allowed(user: dict) -> bool:
-        """Non-admins can only upgrade themselves to clinician if their email has been
-        pre-invited by an admin (`clinician_invites` collection)."""
-        if user.get("is_admin"):
-            return True
-    invite = await db.clinician_invites.find_one({"email": (user.get("email") or "").lower(), "revoked": {"$ne": True}})
-    return invite is not None
 
+    await db.password_reset_tokens.update_one(
+        {"token": payload.token},
+        {"$set": {"used": True}},
+    )
+
+    return {
+        "ok": True,
+        "message": "Password updated. You can now log in.",
+    }
+
+
+async def _is_clinician_role_allowed(user: dict) -> bool:
+    """
+    Non-admins can only upgrade themselves to clinician if their email has
+    been pre-invited by an admin.
+    """
+
+    if user.get("is_admin"):
+        return True
+
+    invite = await db.clinician_invites.find_one(
+        {
+            "email": (user.get("email") or "").lower(),
+            "revoked": {"$ne": True},
+        }
+    )
+
+    return invite is not None
 @api.post("/auth/add-role")
 async def add_role(payload: SwitchRoleIn, user: dict = Depends(get_current_user)):
     """Add a role (clinician or owner) to the current user's `roles[]` and immediately switch to it."""
@@ -1752,7 +1784,7 @@ async def seed():
     await db.exercise_categories.create_index("name", unique=True)
     await db.plans.create_index("plan_id", unique=True)
     await db.diary.create_index("diary_id", unique=True)
-await db.password_reset_tokens.create_index("token", unique=True)
+    await db.password_reset_tokens.create_index("token", unique=True)
 @app.on_event("startup")
 async def on_startup():
     try:
