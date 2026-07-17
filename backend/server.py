@@ -453,7 +453,8 @@ async def reset_password(payload: ResetPasswordIn):
         {"$set": {"password_hash": hash_pw(payload.new_password)}},
     )
     await db.password_reset_tokens.update_one({"token": payload.token}, {"$set": {"used": True}})
-    return {"ok": True, "message": "Password updated. You can now log in."}async def _is_clinician_role_allowed(user: dict) -> bool:
+    return {"ok": True, "message": "Password updated. You can now log in."}
+    async def _is_clinician_role_allowed(user: dict) -> bool:
     """Non-admins can only upgrade themselves to clinician if their email has been
     pre-invited by an admin (`clinician_invites` collection)."""
     if user.get("is_admin"):
