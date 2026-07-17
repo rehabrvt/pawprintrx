@@ -383,7 +383,77 @@ async def logout(request: Request, response: Response):
 async def me(user: dict = Depends(get_current_user)):
     return user
 
-async def _is_clinician_role_allowed(user: dict) -> bool:
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: str = Field(min_length=6)
+
+
+def _send_password_reset_email(to_email: str, reset_link: str) -> bool:
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        return False
+    body_html = (
+        "<div style='font-family:Manrope,Arial,sans-serif;line-height:1.55;color:#1a1a1a;max-width:560px;margin:0 auto'>"
+        "<h2 style='font-size:20px;color:#C96A52;margin:0 0 8px'>Reset your password</h2>"
+        "<p>Click the button below to choose a new password. This link expires in 30 minutes.</p>"
+        f"<p style='margin:20px 0'><a href='{reset_link}' style='background:#C96A52;color:white;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;display:inline-block'>Reset password</a></p>"
+        "<p style='color:#787672;font-size:13px'>If you didn't request this, you can safely ignore this email.</p>"
+        "</div>"
+    )
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": os.environ.get("RESEND_FROM_EMAIL", "PawPrint Rx <onboarding@resend.dev>"),
+                "to": [to_email],
+                "subject": "Reset your PawPrint Rx password",
+                "html": body_html,
+            },
+            timeout=15,
+        )
+        return r.status_code < 400
+    except Exception:
+        return False
+
+
+@api.post("/auth/forgot-password")
+async def forgot_password(payload: ForgotPasswordIn, request: Request):
+    email = payload.email.lower()
+    user = await db.users.find_one({"email": email})
+    if user:
+        token = uuid.uuid4().hex + uuid.uuid4().hex
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        await db.password_reset_tokens.insert_one({
+            "token": token,
+            "user_id": user["user_id"],
+            "expires_at": expires_at.isoformat(),
+            "used": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        frontend = (os.environ.get("FRONTEND_URL") or str(request.base_url)).split(",")[0].rstrip("/")
+        reset_link = f"{frontend}/reset-password?token={token}"
+        _send_password_reset_email(email, reset_link)
+    return {"ok": True, "message": "If that email exists, a reset link has been sent."}
+
+
+@api.post("/auth/reset-password")
+async def reset_password(payload: ResetPasswordIn):
+    record = await db.password_reset_tokens.find_one({"token": payload.token, "used": False})
+    if not record:
+        raise HTTPException(400, "This reset link is invalid or has already been used.")
+    expires_at = datetime.fromisoformat(record["expires_at"])
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(400, "This reset link has expired. Please request a new one.")
+    await db.users.update_one(
+        {"user_id": record["user_id"]},
+        {"$set": {"password_hash": hash_pw(payload.new_password)}},
+    )
+    await db.password_reset_tokens.update_one({"token": payload.token}, {"$set": {"used": True}})
+    return {"ok": True, "message": "Password updated. You can now log in."}async def _is_clinician_role_allowed(user: dict) -> bool:
     """Non-admins can only upgrade themselves to clinician if their email has been
     pre-invited by an admin (`clinician_invites` collection)."""
     if user.get("is_admin"):
@@ -1681,7 +1751,7 @@ async def seed():
     await db.exercise_categories.create_index("name", unique=True)
     await db.plans.create_index("plan_id", unique=True)
     await db.diary.create_index("diary_id", unique=True)
-
+await db.password_reset_tokens.create_index("token", unique=True)
 @app.on_event("startup")
 async def on_startup():
     try:
