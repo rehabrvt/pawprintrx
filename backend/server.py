@@ -589,8 +589,42 @@ async def list_clinician_invites(user: dict = Depends(require_admin)):
     docs = await db.clinician_invites.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
     return docs
 
+def _send_clinician_invite_email(recipient: str, inviter_name: str, signup_url_base: str) -> bool:
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        return False
+    frontend = (os.environ.get("FRONTEND_URL") or signup_url_base or "").rstrip("/")
+    if frontend.endswith("/api"):
+        frontend = frontend[:-4]
+    signup_link = f"{frontend}/signup?email={requests.utils.quote(recipient)}&role=clinician"
+    body_html = (
+        "<div style='font-family:Manrope,Arial,sans-serif;line-height:1.55;color:#1a1a1a;max-width:560px;margin:0 auto'>"
+        "<h1 style='font-size:22px;color:#C96A52;margin:0 0 8px'>You're invited to PawPrint Rx</h1>"
+        f"<p><b>{inviter_name}</b> has invited you to join PawPrint Rx as a clinician.</p>"
+        f"<p style='margin:20px 0'><a href='{signup_link}' style='background:#C96A52;color:white;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;display:inline-block'>Create your account</a></p>"
+        f"<p style='color:#787672;font-size:13px'>Use this same email address ({recipient}) when you sign up — your clinician access is already linked to it.</p>"
+        "<p style='color:#787672;font-size:12px;border-top:1px solid #E2DFD8;padding-top:10px;margin-top:24px'>PawPrint Rx</p>"
+        "</div>"
+    )
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": os.environ.get("RESEND_FROM_EMAIL", "PawPrint Rx <onboarding@resend.dev>"),
+                "to": [recipient],
+                "subject": f"{inviter_name} invited you to join PawPrint Rx",
+                "html": body_html,
+            },
+            timeout=15,
+        )
+        return r.status_code < 400
+    except Exception:
+        return False
+
+
 @api.post("/admin/clinician-invites")
-async def add_clinician_invite(payload: ClinicianInviteIn, user: dict = Depends(require_admin)):
+async def add_clinician_invite(payload: ClinicianInviteIn, request: Request, user: dict = Depends(require_admin)):
     email = payload.email.lower()
     existing = await db.clinician_invites.find_one({"email": email})
     if existing and not existing.get("revoked"):
@@ -608,7 +642,13 @@ async def add_clinician_invite(payload: ClinicianInviteIn, user: dict = Depends(
         await db.clinician_invites.update_one({"email": email}, {"$set": doc})
     else:
         await db.clinician_invites.insert_one(doc)
+    invite_sent = _send_clinician_invite_email(
+        recipient=email,
+        inviter_name=user.get("name") or user["email"],
+        signup_url_base=str(request.base_url),
+    )
     doc.pop("_id", None)
+    doc["invite_sent"] = invite_sent
     return doc
 
 @api.delete("/admin/clinician-invites/{email}")
