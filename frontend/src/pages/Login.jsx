@@ -77,6 +77,11 @@ export default function Login() {
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
+          <p className="text-sm text-right">
+            <Link to="/forgot-password" className="text-[#C96A52] font-semibold" data-testid="link-forgot-password">
+              Forgot your password?
+            </Link>
+          </p>
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#E2DFD8]" /></div>
             <div className="relative flex justify-center text-xs uppercase tracking-[0.2em] text-[#787672]"><span className="bg-bone px-3">or</span></div>
