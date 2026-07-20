@@ -593,7 +593,7 @@ def _send_clinician_invite_email(recipient: str, inviter_name: str, signup_url_b
     api_key = os.environ.get("RESEND_API_KEY")
     if not api_key:
         return False
-    frontend = (os.environ.get("FRONTEND_URL") or signup_url_base or "").rstrip("/")
+    frontend = (os.environ.get("FRONTEND_URL") or signup_url_base or "").split(",")[0].rstrip("/")
     if frontend.endswith("/api"):
         frontend = frontend[:-4]
     signup_link = f"{frontend}/signup?email={requests.utils.quote(recipient)}&role=clinician"
