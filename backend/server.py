@@ -113,6 +113,9 @@ class SwitchRoleIn(BaseModel):
 class ClinicianInviteIn(BaseModel):
     email: EmailStr
 
+class ClinicIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
@@ -1656,6 +1659,25 @@ async def delete_category(category_id: str, user: dict = Depends(require_admin))
     return {"ok": True}
 
 async def seed():
+    # ---------- Clinics (multi-tenancy) ----------
+    # Every clinic gets a clinic_id. Existing users (from before clinics existed)
+    # are backfilled into one "default" clinic so nothing breaks.
+    default_clinic = await db.clinics.find_one({"is_default": True})
+    if not default_clinic:
+        default_clinic = {
+            "clinic_id": f"clinic_{uuid.uuid4().hex[:10]}",
+            "name": "PawPrint Rx (Default)",
+            "is_default": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.clinics.insert_one(default_clinic)
+    default_clinic_id = default_clinic["clinic_id"]
+
+    # Backfill: any user without a clinic_id belongs to the default clinic.
+    await db.users.update_many(
+        {"clinic_id": {"$exists": False}},
+        {"$set": {"clinic_id": default_clinic_id}},
+    )
     # admin clinician
     admin_email = os.environ.get("ADMIN_EMAIL", "clinician@rehab.com")
     admin_pw = os.environ.get("ADMIN_PASSWORD", "rehab123")
@@ -1825,6 +1847,7 @@ async def seed():
     await db.plans.create_index("plan_id", unique=True)
     await db.diary.create_index("diary_id", unique=True)
     await db.password_reset_tokens.create_index("token", unique=True)
+    await db.clinics.create_index("clinic_id", unique=True)
 @app.on_event("startup")
 async def on_startup():
     try:
