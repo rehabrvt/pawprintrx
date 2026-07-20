@@ -58,9 +58,17 @@ export function AuthProvider({ children }) {
     setUser(data);
     return data;
   };
+  const forgotPassword = async (email) => {
+    const { data } = await api.post("/auth/forgot-password", { email });
+    return data;
+  };
+  const resetPassword = async (token, newPassword) => {
+    const { data } = await api.post("/auth/reset-password", { token, new_password: newPassword });
+    return data;
+  };
 
   return (
-    <AuthCtx.Provider value={{ user, setUser, loading, login, register, loginWithGoogle, logout, refresh, switchRole, addRole }}>
+    <AuthCtx.Provider value={{ user, setUser, loading, login, register, loginWithGoogle, logout, refresh, switchRole, addRole, forgotPassword, resetPassword }}>
       {children}
     </AuthCtx.Provider>
   );
