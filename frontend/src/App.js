@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Toaster } from "sonner";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Signup from "./pages/Signup";
 import ClinicianDashboard from "./pages/ClinicianDashboard";
 import ExerciseLibrary from "./pages/ExerciseLibrary";
@@ -45,6 +47,8 @@ function RouterShell() {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/role" element={<Protected><RoleSelect /></Protected>} />
       <Route path="/clinician" element={<Protected><AppShell><ClinicianDashboard /></AppShell></Protected>} />
