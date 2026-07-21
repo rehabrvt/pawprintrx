@@ -681,7 +681,9 @@ async def create_clinic(payload: ClinicAdminInviteIn, request: Request, user: di
 @api.get("/superadmin/clinics")
 async def list_clinics(user: dict = Depends(require_super_admin)):
     return await db.clinics.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
-    class ClinicUpdateIn(BaseModel):
+
+
+class ClinicUpdateIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     brand_color: Optional[str] = "#C96A52"
 
