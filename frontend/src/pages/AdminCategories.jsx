@@ -49,14 +49,15 @@ function ColorRow({ value, onChange }) {
       {PALETTE.map((c) => (
         <Swatch key={c} color={c} selected={(value || "").toLowerCase() === c.toLowerCase()} onSelect={onChange} />
       ))}
-      <div className="flex items-center gap-1 ml-2">
-        <span className="text-xs text-[#787672]">Hex</span>
-        <Input
-          value={value || ""}
+      <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-[#E2DFD8]">
+        <span className="text-xs text-[#787672]">More colors</span>
+        <input
+          type="color"
+          value={value || DEFAULT_COLOR}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="#787672"
-          className="h-7 w-24 text-xs bg-[#F3F0EB] border-transparent"
-          data-testid="category-hex-input"
+          className="h-7 w-7 rounded-full border border-[#E2DFD8] cursor-pointer bg-transparent p-0"
+          data-testid="category-color-wheel"
+          title="Pick any color"
         />
       </div>
     </div>
