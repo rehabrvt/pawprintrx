@@ -17,6 +17,7 @@ import AdminApprovals from "./pages/AdminApprovals";
 import AdminCategories from "./pages/AdminCategories";
 import Templates from "./pages/Templates";
 import AdminClinicianInvites from "./pages/AdminClinicianInvites";
+import SuperAdminClinics from "./pages/SuperAdminClinics";
 import Settings from "./pages/Settings";
 import PendingApproval from "./pages/PendingApproval";
 import AppShell from "./components/AppShell";
@@ -58,6 +59,7 @@ function RouterShell() {
       <Route path="/admin/approvals" element={<Protected><AppShell><AdminApprovals /></AppShell></Protected>} />
       <Route path="/admin/categories" element={<Protected><AppShell><AdminCategories /></AppShell></Protected>} />
       <Route path="/admin/clinician-invites" element={<Protected><AppShell><AdminClinicianInvites /></AppShell></Protected>} />
+      <Route path="/superadmin/clinics" element={<Protected><AppShell><SuperAdminClinics /></AppShell></Protected>} />
       <Route path="/settings" element={<Protected><AppShell><Settings /></AppShell></Protected>} />
       <Route path="/owner" element={<Protected><AppShell><OwnerPortal /></AppShell></Protected>} />
       <Route path="/owner/family" element={<Protected><AppShell><FamilySettings /></AppShell></Protected>} />
