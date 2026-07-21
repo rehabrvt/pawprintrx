@@ -681,6 +681,32 @@ async def create_clinic(payload: ClinicAdminInviteIn, request: Request, user: di
 @api.get("/superadmin/clinics")
 async def list_clinics(user: dict = Depends(require_super_admin)):
     return await db.clinics.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    class ClinicUpdateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    brand_color: Optional[str] = "#C96A52"
+
+
+@api.get("/clinic/me")
+async def get_my_clinic(user: dict = Depends(require_admin)):
+    clinic = await db.clinics.find_one({"clinic_id": user.get("clinic_id")}, {"_id": 0})
+    if not clinic:
+        raise HTTPException(404, "Clinic not found")
+    return clinic
+
+
+@api.put("/clinic/me")
+async def update_my_clinic(payload: ClinicUpdateIn, user: dict = Depends(require_admin)):
+    clinic_id = user.get("clinic_id")
+    if not clinic_id:
+        raise HTTPException(400, "Your account isn't linked to a clinic.")
+    update = {
+        "name": payload.name.strip(),
+        "brand_color": (payload.brand_color or "#C96A52").strip(),
+    }
+    res = await db.clinics.update_one({"clinic_id": clinic_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Clinic not found")
+    return await db.clinics.find_one({"clinic_id": clinic_id}, {"_id": 0})
 @api.get("/admin/clinician-invites")
 async def list_clinician_invites(user: dict = Depends(require_admin)):
     docs = await db.clinician_invites.find({"clinic_id": user.get("clinic_id")}, {"_id": 0}).sort("created_at", -1).to_list(500)
