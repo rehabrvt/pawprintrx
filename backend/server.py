@@ -94,6 +94,10 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     if not user.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
+async def require_super_admin(user: dict = Depends(get_current_user)) -> dict:
+    if not user.get("is_super_admin"):
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    return user
 
 
 def _owner_filter(email: str) -> dict:
@@ -272,15 +276,24 @@ async def register(payload: RegisterIn, response: Response):
     email = payload.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email already registered")
-    is_clinician = payload.role == "clinician"
+   is_clinician = payload.role == "clinician"
     is_admin_email = email in _admin_email_set()
     clinic_id = None
+    becomes_clinic_admin = False
+
+    # Check for a clinic-admin invite first (highest priority).
+    clinic_admin_invite = await db.clinic_admin_invites.find_one({"email": email, "used": {"$ne": True}})
+    if clinic_admin_invite and is_clinician:
+        clinic_id = clinic_admin_invite["clinic_id"]
+        becomes_clinic_admin = True
+        await db.clinic_admin_invites.update_one({"email": email}, {"$set": {"used": True}})
     # Non-admin clinician sign-ups are gated by the clinician invite list.
-    if is_clinician and not is_admin_email:
+    elif is_clinician and not is_admin_email:
         invite = await db.clinician_invites.find_one({"email": email, "revoked": {"$ne": True}})
         if not invite:
             raise HTTPException(status_code=403, detail="Clinician access is invite-only. Please ask an admin to add your email to the invite list, or sign up as a pet parent instead.")
         clinic_id = invite.get("clinic_id")
+
     if not clinic_id:
         default_clinic = await db.clinics.find_one({"is_default": True})
         clinic_id = default_clinic["clinic_id"] if default_clinic else None
@@ -293,8 +306,8 @@ async def register(payload: RegisterIn, response: Response):
         "role": initial_role,
         "roles": [initial_role],
         # Admins (from ADMIN_EMAILS) are auto-approved as clinicians regardless of role chosen.
-        "approval_status": "approved" if (is_admin_email or not is_clinician) else "pending",
-        "is_admin": is_admin_email,
+        "approval_status": "approved" if (is_admin_email or becomes_clinic_admin or not is_clinician) else "pending",
+        "is_admin": is_admin_email or becomes_clinic_admin,
         "clinic_id": clinic_id,
         "password_hash": hash_pw(payload.password),
         "auth_provider": "password",
@@ -593,6 +606,81 @@ async def reject_clinician(target_user_id: str, user: dict = Depends(require_adm
     return {"ok": True}
 
 # ---------- Clinician invites (admin-only allowlist) ----------
+class ClinicAdminInviteIn(BaseModel):
+    clinic_name: str = Field(min_length=1, max_length=120)
+    admin_email: EmailStr
+
+
+def _send_clinic_admin_invite_email(recipient: str, clinic_name: str, signup_url_base: str) -> bool:
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        return False
+    frontend = (os.environ.get("FRONTEND_URL") or signup_url_base or "").split(",")[0].rstrip("/")
+    signup_link = f"{frontend}/signup?email={requests.utils.quote(recipient)}&role=clinician"
+    body_html = (
+        "<div style='font-family:Manrope,Arial,sans-serif;line-height:1.55;color:#1a1a1a;max-width:560px;margin:0 auto'>"
+        "<h1 style='font-size:22px;color:#C96A52;margin:0 0 8px'>You're invited to set up PawPrint Rx</h1>"
+        f"<p>You've been set up as the admin for <b>{clinic_name}</b> on PawPrint Rx.</p>"
+        f"<p style='margin:20px 0'><a href='{signup_link}' style='background:#C96A52;color:white;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;display:inline-block'>Set up your account</a></p>"
+        f"<p style='color:#787672;font-size:13px'>Use this same email address ({recipient}) when you sign up.</p>"
+        "<p style='color:#787672;font-size:12px;border-top:1px solid #E2DFD8;padding-top:10px;margin-top:24px'>PawPrint Rx</p>"
+        "</div>"
+    )
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": os.environ.get("RESEND_FROM_EMAIL", "PawPrint Rx <onboarding@resend.dev>"),
+                "to": [recipient],
+                "subject": f"Set up your clinic on PawPrint Rx: {clinic_name}",
+                "html": body_html,
+            },
+            timeout=15,
+        )
+        return r.status_code < 400
+    except Exception:
+        return False
+
+
+@api.post("/superadmin/clinics")
+async def create_clinic(payload: ClinicAdminInviteIn, request: Request, user: dict = Depends(require_super_admin)):
+    admin_email = payload.admin_email.lower()
+    clinic_doc = {
+        "clinic_id": f"clinic_{uuid.uuid4().hex[:10]}",
+        "name": payload.clinic_name.strip(),
+        "is_default": False,
+        "created_by": user["user_id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.clinics.insert_one(clinic_doc)
+
+    await db.clinic_admin_invites.update_one(
+        {"email": admin_email},
+        {"$set": {
+            "email": admin_email,
+            "clinic_id": clinic_doc["clinic_id"],
+            "clinic_name": clinic_doc["name"],
+            "invited_by": user["email"],
+            "used": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+
+    invite_sent = _send_clinic_admin_invite_email(
+        recipient=admin_email,
+        clinic_name=clinic_doc["name"],
+        signup_url_base=str(request.base_url),
+    )
+    clinic_doc.pop("_id", None)
+    clinic_doc["invite_sent"] = invite_sent
+    return clinic_doc
+
+
+@api.get("/superadmin/clinics")
+async def list_clinics(user: dict = Depends(require_super_admin)):
+    return await db.clinics.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
 @api.get("/admin/clinician-invites")
 async def list_clinician_invites(user: dict = Depends(require_admin)):
     docs = await db.clinician_invites.find({"clinic_id": user.get("clinic_id")}, {"_id": 0}).sort("created_at", -1).to_list(500)
@@ -1729,7 +1817,7 @@ async def seed():
     if admin_emails:
         await db.users.update_many(
             {"email": {"$in": list(admin_emails)}},
-            {"$set": {"is_admin": True, "approval_status": "approved", "role": "clinician"}},
+            {"$set": {"is_admin": True, "is_super_admin": True, "approval_status": "approved", "role": "clinician"}},
         )
     # Backfill: any existing user without approval_status defaults to approved
     await db.users.update_many(
@@ -1855,6 +1943,7 @@ async def seed():
     await db.diary.create_index("diary_id", unique=True)
     await db.password_reset_tokens.create_index("token", unique=True)
     await db.clinics.create_index("clinic_id", unique=True)
+    await db.clinic_admin_invites.create_index("email", unique=True)
 @app.on_event("startup")
 async def on_startup():
     try:
