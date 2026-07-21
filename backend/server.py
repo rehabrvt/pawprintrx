@@ -274,11 +274,16 @@ async def register(payload: RegisterIn, response: Response):
         raise HTTPException(status_code=400, detail="Email already registered")
     is_clinician = payload.role == "clinician"
     is_admin_email = email in _admin_email_set()
+    clinic_id = None
     # Non-admin clinician sign-ups are gated by the clinician invite list.
     if is_clinician and not is_admin_email:
         invite = await db.clinician_invites.find_one({"email": email, "revoked": {"$ne": True}})
         if not invite:
             raise HTTPException(status_code=403, detail="Clinician access is invite-only. Please ask an admin to add your email to the invite list, or sign up as a pet parent instead.")
+        clinic_id = invite.get("clinic_id")
+    if not clinic_id:
+        default_clinic = await db.clinics.find_one({"is_default": True})
+        clinic_id = default_clinic["clinic_id"] if default_clinic else None
     user_id = f"user_{uuid.uuid4().hex[:12]}"
     initial_role = "clinician" if is_admin_email else payload.role
     doc = {
@@ -290,6 +295,7 @@ async def register(payload: RegisterIn, response: Response):
         # Admins (from ADMIN_EMAILS) are auto-approved as clinicians regardless of role chosen.
         "approval_status": "approved" if (is_admin_email or not is_clinician) else "pending",
         "is_admin": is_admin_email,
+        "clinic_id": clinic_id,
         "password_hash": hash_pw(payload.password),
         "auth_provider": "password",
         "picture": "",
@@ -636,6 +642,7 @@ async def add_clinician_invite(payload: ClinicianInviteIn, request: Request, use
         "invite_id": f"inv_{uuid.uuid4().hex[:10]}",
         "email": email,
         "invited_by": user["email"],
+        "clinic_id": user.get("clinic_id"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "used": False,
         "revoked": False,
