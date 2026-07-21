@@ -276,7 +276,7 @@ async def register(payload: RegisterIn, response: Response):
     email = payload.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email already registered")
-   is_clinician = payload.role == "clinician"
+    is_clinician = payload.role == "clinician"
     is_admin_email = email in _admin_email_set()
     clinic_id = None
     becomes_clinic_admin = False
