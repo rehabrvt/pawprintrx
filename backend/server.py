@@ -564,7 +564,7 @@ async def set_role(role: str = Form(...), user: dict = Depends(get_current_user)
 # ---------- Admin: clinician approvals ----------
 @api.get("/admin/clinicians")
 async def list_clinicians(status: Optional[str] = None, user: dict = Depends(require_admin)):
-    q: dict = {"role": "clinician"}
+    q: dict = {"role": "clinician", "clinic_id": user.get("clinic_id")}
     if status in ("pending", "approved", "rejected"):
         q["approval_status"] = status
     docs = await db.users.find(q, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(500)
@@ -574,7 +574,7 @@ async def list_clinicians(status: Optional[str] = None, user: dict = Depends(req
 @api.post("/admin/clinicians/{target_user_id}/approve")
 async def approve_clinician(target_user_id: str, user: dict = Depends(require_admin)):
     res = await db.users.update_one(
-        {"user_id": target_user_id, "role": "clinician"},
+        {"user_id": target_user_id, "role": "clinician", "clinic_id": user.get("clinic_id")},
         {"$set": {"approval_status": "approved", "approved_at": datetime.now(timezone.utc).isoformat(), "approved_by": user["user_id"]}},
     )
     if res.matched_count == 0:
@@ -585,7 +585,7 @@ async def approve_clinician(target_user_id: str, user: dict = Depends(require_ad
 @api.post("/admin/clinicians/{target_user_id}/reject")
 async def reject_clinician(target_user_id: str, user: dict = Depends(require_admin)):
     res = await db.users.update_one(
-        {"user_id": target_user_id, "role": "clinician"},
+        {"user_id": target_user_id, "role": "clinician", "clinic_id": user.get("clinic_id")},
         {"$set": {"approval_status": "rejected", "rejected_at": datetime.now(timezone.utc).isoformat(), "rejected_by": user["user_id"]}},
     )
     if res.matched_count == 0:
@@ -595,7 +595,7 @@ async def reject_clinician(target_user_id: str, user: dict = Depends(require_adm
 # ---------- Clinician invites (admin-only allowlist) ----------
 @api.get("/admin/clinician-invites")
 async def list_clinician_invites(user: dict = Depends(require_admin)):
-    docs = await db.clinician_invites.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    docs = await db.clinician_invites.find({"clinic_id": user.get("clinic_id")}, {"_id": 0}).sort("created_at", -1).to_list(500)
     return docs
 
 def _send_clinician_invite_email(recipient: str, inviter_name: str, signup_url_base: str) -> bool:
@@ -664,7 +664,7 @@ async def add_clinician_invite(payload: ClinicianInviteIn, request: Request, use
 @api.delete("/admin/clinician-invites/{email}")
 async def revoke_clinician_invite(email: str, user: dict = Depends(require_admin)):
     res = await db.clinician_invites.update_one(
-        {"email": email.lower()},
+        {"email": email.lower(), "clinic_id": user.get("clinic_id")},
         {"$set": {"revoked": True, "revoked_at": datetime.now(timezone.utc).isoformat(), "revoked_by": user["email"]}},
     )
     if res.matched_count == 0:
