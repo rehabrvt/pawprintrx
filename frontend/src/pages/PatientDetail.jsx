@@ -10,7 +10,7 @@ import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, X, Download, Mail, Video, ExternalLink, Edit3, Users, Archive, ArchiveRestore, Repeat, TrendingUp, FolderOpen, BookmarkPlus, Copy, Share2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, X, Download, Mail, Video, ExternalLink, Edit3, Users, Archive, ArchiveRestore, Repeat, TrendingUp, FolderOpen, BookmarkPlus, Copy, Share2, Star } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
 import {
@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { API } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 
 function SwapPanel({ currentExId, variations, progressions, allExercises, onSwap }) {
   const [open, setOpen] = useState(false);
@@ -85,7 +86,9 @@ function SwapPanel({ currentExId, variations, progressions, allExercises, onSwap
 
 export default function PatientDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [patient, setPatient] = useState(null);
+  const [pinBusy, setPinBusy] = useState(false);
   const [exercises, setExercises] = useState([]);
   const [plans, setPlans] = useState([]);
   const [diary, setDiary] = useState([]);
@@ -333,6 +336,26 @@ export default function PatientDetail() {
     }
   }
 
+  async function toggleMine() {
+    setPinBusy(true);
+    try {
+      const { data } = await api.post(`/patients/${id}/toggle-mine`);
+      setPatient((p) => ({
+        ...p,
+        pinned_by: data.is_mine
+          ? [...(p.pinned_by || []), user.user_id]
+          : (p.pinned_by || []).filter((uid) => uid !== user.user_id),
+      }));
+      toast.success(data.is_mine ? `${patient.name} added to My Patients` : `${patient.name} removed from My Patients`);
+    } catch (e) {
+      toast.error(formatError(e.response?.data?.detail) || "Could not update");
+    } finally {
+      setPinBusy(false);
+    }
+  }
+
+  const isMine = (patient?.pinned_by || []).includes(user?.user_id);
+
   async function doArchive() {
     try {
       await api.delete(`/patients/${id}`);
@@ -419,6 +442,16 @@ export default function PatientDetail() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight">{patient.name}{patient.last_name ? ` ${patient.last_name}` : ""}</h1>
             <Button variant="ghost" size="sm" onClick={openEdit} data-testid="patient-edit-btn" className="text-[#787672] hover:text-[#C96A52]"><Edit3 size={14} /> Edit</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleMine}
+              disabled={pinBusy}
+              data-testid="patient-toggle-mine-btn"
+              className={isMine ? "text-[#C96A52]" : "text-[#787672] hover:text-[#C96A52]"}
+            >
+              <Star size={14} fill={isMine ? "#C96A52" : "none"} /> {isMine ? "My Patient" : "Mark as mine"}
+            </Button>
             {patient.archived ? (
               <>
                 <span className="text-[10px] uppercase tracking-widest font-bold text-[#787672] bg-[#F3F0EB] px-2 py-1 rounded-full" data-testid="archived-badge">Archived</span>
