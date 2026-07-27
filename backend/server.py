@@ -791,9 +791,11 @@ async def revoke_clinician_invite(email: str, user: dict = Depends(require_admin
 @api.get("/patients")
 async def list_patients(
     archived: Optional[str] = None,
+    mine: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
-    """archived = 'true' (only archived), 'all' (both), default = exclude archived."""
+    """archived = 'true' (only archived), 'all' (both), default = exclude archived.
+    mine = 'true' further filters to patients this clinician has marked as their own."""
     if user["role"] == "clinician":
         q: dict = {}
         if archived == "true":
@@ -802,10 +804,9 @@ async def list_patients(
             pass
         else:
             q["$or"] = [{"archived": {"$exists": False}}, {"archived": False}]
+        if mine == "true":
+            q["pinned_by"] = user["user_id"]
         docs = await db.patients.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
-    else:
-        # Owners always see all their pets (archived or not — they shouldn't be surprised).
-        docs = await db.patients.find(_owner_filter(user["email"]), {"_id": 0}).to_list(500)
     return docs
 
 @api.post("/patients")
@@ -818,12 +819,27 @@ async def create_patient(payload: PatientIn, user: dict = Depends(require_clinic
         "owner_email": (doc.get("owner_email") or "").lower(),
         "photo_url": "",
         "archived": False,
+        "pinned_by": [],
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     await db.patients.insert_one(doc)
     doc.pop("_id", None)
     return doc
-
+    
+@api.post("/patients/{patient_id}/toggle-mine")
+async def toggle_my_patient(patient_id: str, user: dict = Depends(require_clinician)):
+    p = await db.patients.find_one({"patient_id": patient_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(404, "Patient not found")
+    pinned = p.get("pinned_by") or []
+    if user["user_id"] in pinned:
+        await db.patients.update_one({"patient_id": patient_id}, {"$pull": {"pinned_by": user["user_id"]}})
+        is_mine = False
+    else:
+        await db.patients.update_one({"patient_id": patient_id}, {"$addToSet": {"pinned_by": user["user_id"]}})
+        is_mine = True
+    return {"ok": True, "is_mine": is_mine}
+    
 @api.get("/patients/{patient_id}")
 async def get_patient(patient_id: str, user: dict = Depends(get_current_user)):
     p = await db.patients.find_one({"patient_id": patient_id}, {"_id": 0})
