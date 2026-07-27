@@ -7,7 +7,7 @@ import { Label } from "../components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Dog, Search, Download, ArchiveRestore, Archive } from "lucide-react";
+import { Plus, Dog, Search, Download, ArchiveRestore, Archive, Star } from "lucide-react";
 
 const empty = { name: "", last_name: "", breed: "", age_years: "", weight_kg: "", condition: "", notes: "", owner_email: "" };
 
@@ -17,6 +17,7 @@ export default function ClinicianDashboard() {
   const [form, setForm] = useState(empty);
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showMineOnly, setShowMineOnly] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
   // ezyVet
   const [ezyOpen, setEzyOpen] = useState(false);
@@ -28,6 +29,7 @@ export default function ClinicianDashboard() {
   async function load() {
     try {
       const params = showArchived ? { archived: "true" } : {};
+      if (showMineOnly) params.mine = "true";
       const [{ data: rows }, { data: arch }] = await Promise.all([
         api.get("/patients", { params }),
         // Always fetch archived count to drive the toggle badge.
@@ -39,7 +41,7 @@ export default function ClinicianDashboard() {
       toast.error(formatError(e.response?.data?.detail));
     }
   }
-  useEffect(() => { load(); }, [showArchived]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [showArchived, showMineOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function unarchivePatient(e, p) {
     e.preventDefault(); e.stopPropagation();
@@ -127,6 +129,14 @@ export default function ClinicianDashboard() {
             className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-[#C96A52] hover:underline"
           >
             {showArchived ? (<><ArchiveRestore size={14} /> Back to active patients</>) : (<><Archive size={14} /> View archived ({archivedCount})</>)}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowMineOnly((s) => !s)}
+            data-testid="toggle-mine-btn"
+            className={`mt-2 ml-4 inline-flex items-center gap-2 text-xs font-semibold hover:underline ${showMineOnly ? "text-[#C96A52]" : "text-[#787672] hover:text-[#C96A52]"}`}
+          >
+            <Star size={14} fill={showMineOnly ? "#C96A52" : "none"} /> {showMineOnly ? "Showing my patients only" : "Show only my patients"}
           </button>
         </div>
         <div className="flex gap-2 flex-wrap">
