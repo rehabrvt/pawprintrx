@@ -162,6 +162,7 @@ class ExerciseIn(BaseModel):
     media_url: Optional[str] = ""
     media_type: Optional[str] = ""
     video_url: Optional[str] = ""
+    media: List[Dict[str, str]] = Field(default_factory=list)
     # Related exercise IDs.
     variations: List[str] = Field(default_factory=list)
     progressions: List[str] = Field(default_factory=list)
@@ -996,6 +997,18 @@ def _normalize_exercise_doc(doc: dict) -> dict:
             deduped.append(c)
     doc["categories"] = deduped
     doc["category"] = deduped[0] if deduped else legacy
+    # Reconcile legacy single media_url/media_type <-> new multi `media[]`.
+    media = doc.get("media") or []
+    if not isinstance(media, list):
+        media = []
+    media = [m for m in media if isinstance(m, dict) and m.get("url")]
+    if not media and doc.get("media_url"):
+        media = [{"url": doc["media_url"], "type": doc.get("media_type") or "image"}]
+    media = media[:3]  # cap at 3 files per exercise
+    doc["media"] = media
+    doc["media_url"] = media[0]["url"] if media else ""
+    doc["media_type"] = media[0]["type"] if media else ""
+    return doc
     return doc
 
 @api.post("/exercises")
