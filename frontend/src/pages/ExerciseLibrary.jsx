@@ -514,17 +514,31 @@ async function onMedia(e) {
           </div>
         ) : filtered.map((ex) => (
           <div key={ex.exercise_id} className="bg-white border border-[#E2DFD8] rounded-3xl overflow-hidden flex flex-col" data-testid={`ex-card-${ex.exercise_id}`}>
-            <div className="aspect-video bg-[#E8E2D9] flex items-center justify-center overflow-hidden">
-              {ex.media_url ? (
-                ex.media_type === "video" ? (
-                  <video src={fileSrc(ex.media_url)} className="h-full w-full object-cover" controls />
+          {(ex.media || []).length > 1 ? (
+              <div className="grid grid-cols-3 gap-0.5 bg-[#E8E2D9]">
+                {ex.media.map((m, i) => (
+                  <div key={i} className="aspect-square overflow-hidden">
+                    {m.type === "video" ? (
+                      <video src={fileSrc(m.url)} className="h-full w-full object-cover" controls />
+                    ) : (
+                      <img src={fileSrc(m.url)} alt={`${ex.name} ${i + 1}`} className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="aspect-video bg-[#E8E2D9] flex items-center justify-center overflow-hidden">
+                {ex.media_url ? (
+                  ex.media_type === "video" ? (
+                    <video src={fileSrc(ex.media_url)} className="h-full w-full object-cover" controls />
+                  ) : (
+                    <img src={fileSrc(ex.media_url)} alt={ex.name} className="h-full w-full object-cover" />
+                  )
                 ) : (
-                  <img src={fileSrc(ex.media_url)} alt={ex.name} className="h-full w-full object-cover" />
-                )
-              ) : (
-                <ImageIcon className="text-[#C96A52]" size={28} />
-              )}
-            </div>
+                  <ImageIcon className="text-[#C96A52]" size={28} />
+                )}
+              </div>
+            )}
             <div className="p-5 flex-1 flex flex-col">
               <div className="flex flex-wrap gap-1.5" data-testid={`ex-card-categories-${ex.exercise_id}`}>
                 {exCats(ex).map((c) => (
