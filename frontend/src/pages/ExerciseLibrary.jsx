@@ -20,7 +20,7 @@ import { setCategoryColors, getCategoryColor, colorWithAlpha } from "../lib/cate
 import { CategoryChip } from "../components/CategoryChip";
 import { Dumbbell, Plus, Pencil, Trash2, Image as ImageIcon, Search, X, Repeat, TrendingUp } from "lucide-react";
 
-const empty = { name: "", categories: ["Strength"], description: "", instructions: "", default_sets: "3", default_reps: "10", default_duration: "", default_frequency: "Daily", media_url: "", media_type: "", video_url: "", variations: [], progressions: [] };
+const empty = { name: "", categories: ["Strength"], description: "", instructions: "", default_sets: "3", default_reps: "10", default_duration: "", default_frequency: "Daily", media_url: "", media_type: "", media: [], video_url: "", variations: [], progressions: [] };
 
 const FALLBACK_CATEGORIES = ["Strength", "Neurologic", "Posture", "Balance", "Conditioning", "Forelimb", "Hindlimb", "Pain Relief"];
 
@@ -201,14 +201,37 @@ export default function ExerciseLibrary() {
     finally { setBusy(false); }
   }
 
-  async function onMedia(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
+async function onMedia(e) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const existing = form.media || [];
+    const room = 3 - existing.length;
+    if (room <= 0) {
+      toast.error("You can only have up to 3 media files per exercise");
+      e.target.value = "";
+      return;
+    }
+    const toUpload = files.slice(0, room);
+    if (files.length > room) {
+      toast.info(`Only uploading ${room} file${room === 1 ? "" : "s"} — 3 max per exercise`);
+    }
     try {
-      const r = await uploadFile(f);
-      setForm((s) => ({ ...s, media_url: r.url, media_type: r.content_type?.startsWith("video") ? "video" : "image" }));
-      toast.success("Media uploaded");
-    } catch (err) { toast.error(formatError(err.response?.data?.detail) || "Upload failed"); }
+      const uploaded = [];
+      for (const f of toUpload) {
+        const r = await uploadFile(f);
+        uploaded.push({ url: r.url, type: r.content_type?.startsWith("video") ? "video" : "image" });
+      }
+      setForm((s) => ({ ...s, media: [...(s.media || []), ...uploaded] }));
+      toast.success(uploaded.length === 1 ? "Media uploaded" : `${uploaded.length} files uploaded`);
+    } catch (err) {
+      toast.error(formatError(err.response?.data?.detail) || "Upload failed");
+    } finally {
+      e.target.value = "";
+    }
+  }
+
+  function removeMedia(index) {
+    setForm((s) => ({ ...s, media: (s.media || []).filter((_, i) => i !== index) }));
   }
 
   async function confirmDeleteNow() {
@@ -235,6 +258,7 @@ export default function ExerciseLibrary() {
       default_duration: ex.default_duration || (ex.default_duration_seconds ? `${ex.default_duration_seconds} sec` : ""),
       default_frequency: ex.default_frequency || "Daily",
       media_url: ex.media_url || "", media_type: ex.media_type || "",
+      media: Array.isArray(ex.media) ? ex.media : (ex.media_url ? [{ url: ex.media_url, type: ex.media_type || "image" }] : []),
       video_url: ex.video_url || "",
       variations: Array.isArray(ex.variations) ? ex.variations : [],
       progressions: Array.isArray(ex.progressions) ? ex.progressions : [],
@@ -360,10 +384,36 @@ export default function ExerciseLibrary() {
               <div className="col-span-2"><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="ex-description" className="bg-[#F3F0EB] border-transparent mt-1" /></div>
               <div className="col-span-2"><Label>Instructions</Label><Textarea rows={3} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} data-testid="ex-instructions" className="bg-[#F3F0EB] border-transparent mt-1" /></div>
               <div className="col-span-2">
-                <Label>Demo image / video</Label>
-                <Input type="file" accept="image/*,video/*" onChange={onMedia} data-testid="ex-media" className="mt-1" />
-                {form.media_url && (
-                  <p className="text-xs text-[#5B7566] mt-2">Uploaded ({form.media_type || "media"})</p>
+                <Label>Demo images / videos <span className="text-xs text-[#787672] font-normal">· up to 3</span></Label>
+                <Input
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  onChange={onMedia}
+                  data-testid="ex-media"
+                  className="mt-1"
+                  disabled={(form.media || []).length >= 3}
+                />
+                {(form.media || []).length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2" data-testid="ex-media-preview">
+                    {form.media.map((m, i) => (
+                      <div key={i} className="relative rounded-lg overflow-hidden border border-[#E2DFD8] aspect-square bg-[#F3F0EB]">
+                        {m.type === "video" ? (
+                          <video src={fileSrc(m.url)} className="h-full w-full object-cover" />
+                        ) : (
+                          <img src={fileSrc(m.url)} alt="" className="h-full w-full object-cover" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeMedia(i)}
+                          className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
+                          data-testid={`ex-media-remove-${i}`}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="col-span-2">
