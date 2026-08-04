@@ -585,6 +585,36 @@ async def list_clinicians(status: Optional[str] = None, user: dict = Depends(req
     return docs
 
 
+def _send_clinician_approved_email(recipient: str, name: str, frontend_url: str) -> bool:
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        return False
+    login_link = f"{(frontend_url or '').split(',')[0].rstrip('/')}/login"
+    body_html = (
+        "<div style='font-family:Manrope,Arial,sans-serif;line-height:1.55;color:#1a1a1a;max-width:560px;margin:0 auto'>"
+        "<h1 style='font-size:22px;color:#C96A52;margin:0 0 8px'>You're approved!</h1>"
+        f"<p>Hi {name or ''}, your clinician account on PawPrint Rx has been approved. You can now sign in and start building rehab plans.</p>"
+        f"<p style='margin:20px 0'><a href='{login_link}' style='background:#C96A52;color:white;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;display:inline-block'>Sign in</a></p>"
+        "<p style='color:#787672;font-size:12px;border-top:1px solid #E2DFD8;padding-top:10px;margin-top:24px'>PawPrint Rx</p>"
+        "</div>"
+    )
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": os.environ.get("RESEND_FROM_EMAIL", "PawPrint Rx <onboarding@resend.dev>"),
+                "to": [recipient],
+                "subject": "You're approved on PawPrint Rx",
+                "html": body_html,
+            },
+            timeout=15,
+        )
+        return r.status_code < 400
+    except Exception:
+        return False
+
+
 @api.post("/admin/clinicians/{target_user_id}/approve")
 async def approve_clinician(target_user_id: str, user: dict = Depends(require_admin)):
     res = await db.users.update_one(
@@ -593,6 +623,13 @@ async def approve_clinician(target_user_id: str, user: dict = Depends(require_ad
     )
     if res.matched_count == 0:
         raise HTTPException(404, "Clinician not found")
+    approved_user = await db.users.find_one({"user_id": target_user_id}, {"_id": 0, "email": 1, "name": 1})
+    if approved_user:
+        _send_clinician_approved_email(
+            recipient=approved_user["email"],
+            name=approved_user.get("name", ""),
+            frontend_url=os.environ.get("FRONTEND_URL", ""),
+        )
     return {"ok": True}
 
 
