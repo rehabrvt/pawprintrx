@@ -294,6 +294,22 @@ async def register(payload: RegisterIn, response: Response):
         if not invite:
             raise HTTPException(status_code=403, detail="Clinician access is invite-only. Please ask an admin to add your email to the invite list, or sign up as a pet parent instead.")
         clinic_id = invite.get("clinic_id")
+    # Owner sign-ups are gated: this email must already be linked to a patient
+    # (as the primary owner or a co-parent) added by a clinician.
+    elif not is_clinician and not is_admin_email:
+        linked_patient = await db.patients.find_one({
+            "$or": [{"owner_email": email}, {"coparent_emails": email}]
+        })
+        if not linked_patient:
+            raise HTTPException(
+                status_code=403,
+                detail="Pet-parent access is invite-only. Please ask your clinic to add you as a patient's owner first.",
+            )
+        clinician_owner = await db.patients.find_one({"owner_email": email}, {"_id": 0, "clinician_id": 1})
+        clinician_record = None
+        if clinician_owner:
+            clinician_record = await db.users.find_one({"user_id": clinician_owner.get("clinician_id")}, {"_id": 0, "clinic_id": 1})
+        clinic_id = clinician_record.get("clinic_id") if clinician_record else None
 
     if not clinic_id:
         default_clinic = await db.clinics.find_one({"is_default": True})
