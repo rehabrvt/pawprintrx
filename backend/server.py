@@ -847,20 +847,62 @@ async def list_patients(
         docs = await db.patients.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
     return docs
 
+def _send_owner_invite_email(recipient: str, clinician_name: str, pet_name: str, signup_url_base: str) -> bool:
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        return False
+    frontend = (os.environ.get("FRONTEND_URL") or signup_url_base or "").split(",")[0].rstrip("/")
+    signup_link = f"{frontend}/signup?email={requests.utils.quote(recipient)}&role=owner"
+    body_html = (
+        "<div style='font-family:Manrope,Arial,sans-serif;line-height:1.55;color:#1a1a1a;max-width:560px;margin:0 auto'>"
+        "<h1 style='font-size:22px;color:#C96A52;margin:0 0 8px'>You're invited to PawPrint Rx</h1>"
+        f"<p><b>{clinician_name}</b> has added <b>{pet_name}</b> to PawPrint Rx and invited you to track their rehab progress.</p>"
+        f"<p style='margin:20px 0'><a href='{signup_link}' style='background:#C96A52;color:white;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;display:inline-block'>Set up your account</a></p>"
+        f"<p style='color:#787672;font-size:13px'>Use this same email address ({recipient}) when you sign up.</p>"
+        "<p style='color:#787672;font-size:12px;border-top:1px solid #E2DFD8;padding-top:10px;margin-top:24px'>PawPrint Rx</p>"
+        "</div>"
+    )
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": os.environ.get("RESEND_FROM_EMAIL", "PawPrint Rx <onboarding@resend.dev>"),
+                "to": [recipient],
+                "subject": f"{clinician_name} invited you to PawPrint Rx",
+                "html": body_html,
+            },
+            timeout=15,
+        )
+        return r.status_code < 400
+    except Exception:
+        return False
+
+
 @api.post("/patients")
-async def create_patient(payload: PatientIn, user: dict = Depends(require_clinician)):
+async def create_patient(payload: PatientIn, request: Request, user: dict = Depends(require_clinician)):
     pid = f"pat_{uuid.uuid4().hex[:12]}"
     doc = payload.model_dump()
+    owner_email = (doc.get("owner_email") or "").lower()
     doc.update({
         "patient_id": pid,
         "clinician_id": user["user_id"],
-        "owner_email": (doc.get("owner_email") or "").lower(),
+        "owner_email": owner_email,
         "photo_url": "",
         "archived": False,
         "pinned_by": [],
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     await db.patients.insert_one(doc)
+    if owner_email:
+        existing_owner_account = await db.users.find_one({"email": owner_email})
+        if not existing_owner_account:
+            _send_owner_invite_email(
+                recipient=owner_email,
+                clinician_name=user.get("name") or user["email"],
+                pet_name=doc.get("name", "your pet"),
+                signup_url_base=str(request.base_url),
+            )
     doc.pop("_id", None)
     return doc
     
