@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner";
 import { setCategoryColors, getCategoryColor, colorWithAlpha } from "../lib/categoryColors";
 import { CategoryChip } from "../components/CategoryChip";
-import { Dumbbell, Plus, Pencil, Trash2, Image as ImageIcon, Search, X, Repeat, TrendingUp } from "lucide-react";
+import { Dumbbell, Plus, Pencil, Trash2, Image as ImageIcon, Search, X, Repeat, TrendingUp, Copy } from "lucide-react";
 
 const empty = { name: "", categories: ["Strength"], description: "", instructions: "", default_sets: "3", default_reps: "10", default_duration: "", default_frequency: "Daily", media_url: "", media_type: "", media: [], video_url: "", variations: [], progressions: [] };
 
@@ -265,6 +265,27 @@ async function onMedia(e) {
     });
     setEditingId(ex.exercise_id);
     openDialog();
+  }
+
+  function duplicateExercise(ex) {
+    setForm({
+      name: `${ex.name} (Copy)`,
+      categories: exCats(ex),
+      description: ex.description,
+      instructions: ex.instructions,
+      default_sets: ex.default_sets != null ? String(ex.default_sets) : "",
+      default_reps: ex.default_reps != null ? String(ex.default_reps) : "",
+      default_duration: ex.default_duration || (ex.default_duration_seconds ? `${ex.default_duration_seconds} sec` : ""),
+      default_frequency: ex.default_frequency || "Daily",
+      media_url: ex.media_url || "", media_type: ex.media_type || "",
+      media: Array.isArray(ex.media) ? ex.media : (ex.media_url ? [{ url: ex.media_url, type: ex.media_type || "image" }] : []),
+      video_url: ex.video_url || "",
+      variations: [],
+      progressions: [],
+    });
+    setEditingId(null);
+    openDialog();
+    toast.info("Duplicated — edit the name and save to create a new exercise");
   }
 
   function toggleFormCategory(name) {
@@ -584,6 +605,7 @@ async function onMedia(e) {
               )}
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[#E2DFD8]">
                 <Button variant="ghost" size="sm" onClick={() => startEdit(ex)} data-testid={`ex-edit-${ex.exercise_id}`}><Pencil size={14} /> Edit</Button>
+                <Button variant="ghost" size="sm" onClick={() => duplicateExercise(ex)} data-testid={`ex-duplicate-${ex.exercise_id}`}><Copy size={14} /> Duplicate</Button>
                 <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setConfirmDelete(ex)} data-testid={`ex-delete-${ex.exercise_id}`}><Trash2 size={14} /> Delete</Button>
               </div>
             </div>
