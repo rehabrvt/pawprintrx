@@ -24,7 +24,6 @@ const empty = { name: "", categories: ["Strength"], description: "", instruction
 
 const FALLBACK_CATEGORIES = ["Strength", "Neurologic", "Posture", "Balance", "Conditioning", "Forelimb", "Hindlimb", "Pain Relief"];
 
-// Return the categories array for an exercise (with legacy fallback).
 export function exCats(ex) {
   if (Array.isArray(ex?.categories) && ex.categories.length > 0) return ex.categories;
   return ex?.category ? [ex.category] : [];
@@ -103,12 +102,10 @@ export default function ExerciseLibrary() {
   const [editingId, setEditingId] = useState(null);
   const [query, setQuery] = useState("");
   const [activeCategories, setActiveCategories] = useState([]); // empty = "All"
-  const [confirmDelete, setConfirmDelete] = useState(null); // exercise object pending deletion
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [categoryList, setCategoryList] = useState(FALLBACK_CATEGORIES);
   const savedScrollY = useRef(0);
 
-  // Open/close the New/Edit exercise dialog while preserving page scroll
-  // (Radix Dialog uses react-remove-scroll which can reset scroll when closing).
   function openDialog() {
     savedScrollY.current = window.scrollY;
     setOpen(true);
@@ -116,7 +113,6 @@ export default function ExerciseLibrary() {
   function closeDialog() {
     const y = savedScrollY.current;
     setOpen(false);
-    // Re-assert scroll across the next two frames so it survives Radix's body-lock release.
     requestAnimationFrame(() => {
       window.scrollTo(0, y);
       requestAnimationFrame(() => window.scrollTo(0, y));
@@ -201,7 +197,7 @@ export default function ExerciseLibrary() {
     finally { setBusy(false); }
   }
 
-async function onMedia(e) {
+  async function onMedia(e) {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     const existing = form.media || [];
@@ -340,27 +336,27 @@ async function onMedia(e) {
               <div className="col-span-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="ex-name" className="bg-[#F3F0EB] border-transparent focus-visible:border-[#C96A52] focus-visible:ring-1 focus-visible:ring-[#C96A52] mt-1" /></div>
               <div className="col-span-2">
                 <Label>Categories <span className="text-xs text-[#787672] font-normal">· tap to toggle</span></Label>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((c) => {
-            const active = c === "All" ? activeCategories.length === 0 : activeCategories.includes(c);
-            const color = c === "All" ? "#C96A52" : getCategoryColor(c);
-            const style = active
-              ? { backgroundColor: color, borderColor: color, color: "#fff" }
-              : { backgroundColor: colorWithAlpha(color, 0.10), borderColor: colorWithAlpha(color, 0.30), color };
-            return (
-              <button
-                key={c}
-                onClick={() => (c === "All" ? setActiveCategories([]) : toggleActiveCategory(c))}
-                data-testid={`ex-cat-${c}`}
-                className="rounded-full px-4 py-1.5 text-sm font-semibold transition border hover:shadow-sm"
-                style={style}
-              >
-                {active && c !== "All" ? "✓ " : ""}{c}
-                <span className="ml-1.5 text-xs opacity-80">{counts[c] || 0}</span>
-              </button>
-            );
-          })}
-        </div>
+                <div className="mt-2 flex flex-wrap gap-2" data-testid="ex-categories">
+                  {categoryList.map((c) => {
+                    const selected = (form.categories || []).includes(c);
+                    const color = getCategoryColor(c);
+                    const style = selected
+                      ? { backgroundColor: color, borderColor: color, color: "#fff" }
+                      : { backgroundColor: colorWithAlpha(color, 0.10), borderColor: colorWithAlpha(color, 0.30), color };
+                    return (
+                      <button
+                        type="button"
+                        key={c}
+                        onClick={() => toggleFormCategory(c)}
+                        className="rounded-full px-3 py-1 text-xs font-semibold transition border"
+                        style={style}
+                        data-testid={`ex-cat-toggle-${c}`}
+                      >
+                        {selected ? "✓ " : ""}{c}
+                      </button>
+                    );
+                  })}
+                </div>
                 {(form.categories || []).length === 0 && (
                   <p className="text-xs text-destructive mt-1">Pick at least one category</p>
                 )}
@@ -501,7 +497,7 @@ async function onMedia(e) {
         </div>
         <div className="flex flex-wrap gap-2">
           {categories.map((c) => {
-            const active = activeCategory === c;
+            const active = c === "All" ? activeCategories.length === 0 : activeCategories.includes(c);
             const color = c === "All" ? "#C96A52" : getCategoryColor(c);
             const style = active
               ? { backgroundColor: color, borderColor: color, color: "#fff" }
@@ -509,12 +505,12 @@ async function onMedia(e) {
             return (
               <button
                 key={c}
-                onClick={() => setActiveCategory(c)}
+                onClick={() => (c === "All" ? setActiveCategories([]) : toggleActiveCategory(c))}
                 data-testid={`ex-cat-${c}`}
                 className="rounded-full px-4 py-1.5 text-sm font-semibold transition border hover:shadow-sm"
                 style={style}
               >
-                {c}
+                {active && c !== "All" ? "✓ " : ""}{c}
                 <span className="ml-1.5 text-xs opacity-80">{counts[c] || 0}</span>
               </button>
             );
@@ -536,11 +532,11 @@ async function onMedia(e) {
             <Search size={36} className="mx-auto text-[#C96A52]" />
             <p className="font-display text-xl font-semibold mt-3">No exercises match these filters</p>
             <p className="text-[#787672] mt-2 text-sm">Try a different category or clear the search.</p>
-            <Button variant="ghost" onClick={() => { setQuery(""); setActiveCategory("All"); }} className="mt-3 text-[#C96A52]">Clear filters</Button>
+            <Button variant="ghost" onClick={() => { setQuery(""); setActiveCategories([]); }} className="mt-3 text-[#C96A52]">Clear filters</Button>
           </div>
         ) : filtered.map((ex) => (
           <div key={ex.exercise_id} className="bg-white border border-[#E2DFD8] rounded-3xl overflow-hidden flex flex-col" data-testid={`ex-card-${ex.exercise_id}`}>
-          {(ex.media || []).length > 1 ? (
+            {(ex.media || []).length > 1 ? (
               <div className="grid grid-cols-3 gap-0.5 bg-[#E8E2D9]">
                 {ex.media.map((m, i) => (
                   <div key={i} className="aspect-square overflow-hidden">
