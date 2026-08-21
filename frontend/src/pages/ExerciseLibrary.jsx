@@ -102,7 +102,7 @@ export default function ExerciseLibrary() {
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeCategories, setActiveCategories] = useState([]); // empty = "All"
   const [confirmDelete, setConfirmDelete] = useState(null); // exercise object pending deletion
   const [categoryList, setCategoryList] = useState(FALLBACK_CATEGORIES);
   const savedScrollY = useRef(0);
@@ -142,9 +142,9 @@ export default function ExerciseLibrary() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return exercises.filter((ex) => {
-      if (activeCategory !== "All") {
+      if (activeCategories.length > 0) {
         const cats = exCats(ex);
-        if (!cats.includes(activeCategory)) return false;
+        if (!activeCategories.every((c) => cats.includes(c))) return false;
       }
       if (!q) return true;
       return (
@@ -153,7 +153,7 @@ export default function ExerciseLibrary() {
         (ex.instructions || "").toLowerCase().includes(q)
       );
     });
-  }, [exercises, query, activeCategory]);
+  }, [exercises, query, activeCategories]);
 
   async function load() {
     try {
@@ -288,6 +288,11 @@ async function onMedia(e) {
     toast.info("Duplicated — edit the name and save to create a new exercise");
   }
 
+  function toggleActiveCategory(name) {
+    setActiveCategories((prev) =>
+      prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]
+    );
+  }
   function toggleFormCategory(name) {
     setForm((s) => {
       const list = Array.isArray(s.categories) ? s.categories : [];
@@ -335,27 +340,27 @@ async function onMedia(e) {
               <div className="col-span-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="ex-name" className="bg-[#F3F0EB] border-transparent focus-visible:border-[#C96A52] focus-visible:ring-1 focus-visible:ring-[#C96A52] mt-1" /></div>
               <div className="col-span-2">
                 <Label>Categories <span className="text-xs text-[#787672] font-normal">· tap to toggle</span></Label>
-                <div className="mt-2 flex flex-wrap gap-2" data-testid="ex-categories">
-                  {categoryList.map((c) => {
-                    const selected = (form.categories || []).includes(c);
-                    const color = getCategoryColor(c);
-                    const style = selected
-                      ? { backgroundColor: color, borderColor: color, color: "#fff" }
-                      : { backgroundColor: colorWithAlpha(color, 0.10), borderColor: colorWithAlpha(color, 0.30), color };
-                    return (
-                      <button
-                        type="button"
-                        key={c}
-                        onClick={() => toggleFormCategory(c)}
-                        className="rounded-full px-3 py-1 text-xs font-semibold transition border"
-                        style={style}
-                        data-testid={`ex-cat-toggle-${c}`}
-                      >
-                        {selected ? "✓ " : ""}{c}
-                      </button>
-                    );
-                  })}
-                </div>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((c) => {
+            const active = c === "All" ? activeCategories.length === 0 : activeCategories.includes(c);
+            const color = c === "All" ? "#C96A52" : getCategoryColor(c);
+            const style = active
+              ? { backgroundColor: color, borderColor: color, color: "#fff" }
+              : { backgroundColor: colorWithAlpha(color, 0.10), borderColor: colorWithAlpha(color, 0.30), color };
+            return (
+              <button
+                key={c}
+                onClick={() => (c === "All" ? setActiveCategories([]) : toggleActiveCategory(c))}
+                data-testid={`ex-cat-${c}`}
+                className="rounded-full px-4 py-1.5 text-sm font-semibold transition border hover:shadow-sm"
+                style={style}
+              >
+                {active && c !== "All" ? "✓ " : ""}{c}
+                <span className="ml-1.5 text-xs opacity-80">{counts[c] || 0}</span>
+              </button>
+            );
+          })}
+        </div>
                 {(form.categories || []).length === 0 && (
                   <p className="text-xs text-destructive mt-1">Pick at least one category</p>
                 )}
@@ -515,10 +520,10 @@ async function onMedia(e) {
             );
           })}
         </div>
-        {(query || activeCategory !== "All") && (
+        {(query || activeCategories.length > 0) && (
           <div className="flex items-center gap-3 pt-1 text-xs text-[#787672]">
             <span>Showing <b className="text-[#1a1a1a]">{filtered.length}</b> of {exercises.length}</span>
-            <button onClick={() => { setQuery(""); setActiveCategory("All"); }} className="text-[#C96A52] font-semibold hover:underline" data-testid="ex-clear-filters">
+            <button onClick={() => { setQuery(""); setActiveCategories([]); }} className="text-[#C96A52] font-semibold hover:underline" data-testid="ex-clear-filters">
               Clear filters
             </button>
           </div>
@@ -566,7 +571,7 @@ async function onMedia(e) {
                   <button
                     type="button"
                     key={c}
-                    onClick={() => setActiveCategory(c)}
+                    onClick={() => setActiveCategories([c])}
                     className="transition hover:opacity-80"
                     title={`Filter by ${c}`}
                   >
