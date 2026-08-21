@@ -7,11 +7,21 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { toast } from "sonner";
-import { Layers, Plus, Pencil, Trash2, Share2, X, Globe, Users } from "lucide-react";
+import { Layers, Plus, Pencil, Trash2, Share2, X, Globe, Users, Search } from "lucide-react";
+import { Textarea } from "../components/ui/textarea";
+import { exCats } from "./ExerciseLibrary";
 
 export default function Templates() {
   const { user } = useAuth();
   const [templates, setTemplates] = useState([]);
+  const [exercises, setExercises] = useState([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newPublic, setNewPublic] = useState(false);
+  const [newItems, setNewItems] = useState([]);
+  const [exQuery, setExQuery] = useState("");
   const [editing, setEditing] = useState(null); // template object being edited
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -24,7 +34,51 @@ export default function Templates() {
       setTemplates(data);
     } catch (e) { toast.error(formatError(e.response?.data?.detail) || "Could not load templates"); }
   }
-  useEffect(() => { load(); }, []);
+  async function loadExercises() {
+    try {
+      const { data } = await api.get("/exercises");
+      setExercises(data);
+    } catch (e) { toast.error(formatError(e.response?.data?.detail) || "Could not load exercises"); }
+  }
+  useEffect(() => { load(); loadExercises(); }, []);
+
+  function openCreate() {
+    setNewName(""); setNewDesc(""); setNewPublic(false); setNewItems([]); setExQuery("");
+    setCreateOpen(true);
+  }
+  function addNewItem(ex) {
+    if (newItems.find((i) => i.exercise_id === ex.exercise_id)) return;
+    setNewItems((prev) => [...prev, {
+      exercise_id: ex.exercise_id,
+      sets: ex.default_sets != null ? String(ex.default_sets) : "3",
+      reps: ex.default_reps != null ? String(ex.default_reps) : "10",
+      duration: ex.default_duration || "",
+      frequency: ex.default_frequency || "Daily",
+      notes: "",
+    }]);
+  }
+  function removeNewItem(exId) { setNewItems((prev) => prev.filter((i) => i.exercise_id !== exId)); }
+  function updateNewItem(exId, patch) { setNewItems((prev) => prev.map((i) => i.exercise_id === exId ? { ...i, ...patch } : i)); }
+
+  async function createTemplate() {
+    const name = newName.trim();
+    if (!name || newItems.length === 0) return;
+    setCreateBusy(true);
+    try {
+      await api.post("/plan-templates", { name, description: newDesc.trim(), is_public: newPublic, items: newItems });
+      toast.success(`Created "${name}"`);
+      setCreateOpen(false);
+      load();
+    } catch (e) { toast.error(formatError(e.response?.data?.detail) || "Could not create template"); }
+    finally { setCreateBusy(false); }
+  }
+
+  const exerciseById = Object.fromEntries(exercises.map((e) => [e.exercise_id, e]));
+  const filteredExercises = exercises.filter((ex) => {
+    const q = exQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (ex.name || "").toLowerCase().includes(q) || exCats(ex).some((c) => c.toLowerCase().includes(q));
+  });
 
   if (user?.role !== "clinician") return <Navigate to={user?.role === "owner" ? "/owner" : "/login"} replace />;
 
