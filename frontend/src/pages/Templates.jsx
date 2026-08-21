@@ -140,18 +140,23 @@ export default function Templates() {
 
   return (
     <div className="space-y-10" data-testid="templates-page">
-      <div>
-        <p className="text-xs tracking-[0.2em] uppercase text-[#787672] font-bold">Clinician</p>
-        <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight mt-1">Plan templates</h1>
-        <p className="text-[#787672] mt-2 max-w-xl">
-          Save any patient's plan as a reusable template, then load it onto a new patient in one click.
-          Share by email with colleagues, or make it public to every clinician.
-        </p>
+            <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <p className="text-xs tracking-[0.2em] uppercase text-[#787672] font-bold">Clinician</p>
+          <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight mt-1">Plan templates</h1>
+          <p className="text-[#787672] mt-2 max-w-xl">
+            Build a reusable set of exercises here, or save any patient's plan as a template. Load one onto a
+            new patient in one click. Share by email with colleagues, or make it public to every clinician.
+          </p>
+        </div>
+        <Button onClick={openCreate} className="rounded-full bg-[#C96A52] hover:bg-[#B35A44] h-11 px-6" data-testid="create-template-btn">
+          <Plus size={16} /> New template
+        </Button>
       </div>
 
       <Section title="My templates" count={owned.length} icon={<Layers size={18} />}>
         {owned.length === 0 ? (
-          <Empty msg="No templates yet. In a patient's plan builder, click &apos;Save as template&apos;." />
+                    <Empty msg="No templates yet. Click &apos;New template&apos; above to build one." />
         ) : (
           <TemplateGrid tpls={owned} onEdit={openEdit} onDelete={deleteTpl} canEdit />
         )}
@@ -216,6 +221,79 @@ export default function Templates() {
             {editing?._relation === "owned" && <Button variant="ghost" className="text-destructive mr-auto" onClick={() => deleteTpl(editing)}><Trash2 size={14} /> Delete</Button>}
             <Button variant="ghost" onClick={() => setEditing(null)}>Close</Button>
             {editing?._relation === "owned" && <Button onClick={saveEdit} className="rounded-full bg-[#C96A52] hover:bg-[#B35A44]" data-testid="edit-tpl-save">Save</Button>}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="rounded-2xl max-w-3xl max-h-[85vh] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="create-template-dialog">
+          <DialogHeader><DialogTitle className="font-display text-2xl">New template</DialogTitle></DialogHeader>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <div>
+                <Label>Template name</Label>
+                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Carpal Flexion" data-testid="new-tpl-name" className="bg-[#F3F0EB] border-transparent mt-1" />
+              </div>
+              <div>
+                <Label>Description <span className="text-xs text-[#787672] font-normal">(optional)</span></Label>
+                <Textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} rows={2} data-testid="new-tpl-desc" className="bg-[#F3F0EB] border-transparent mt-1" />
+              </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={newPublic} onChange={(e) => setNewPublic(e.target.checked)} className="rounded" data-testid="new-tpl-public" />
+                <Globe size={14} /> Share publicly with every clinician
+              </label>
+
+              <p className="text-xs uppercase tracking-widest font-bold text-[#787672] pt-2">Selected exercises ({newItems.length})</p>
+              {newItems.length === 0 ? (
+                <p className="text-sm text-[#787672]">Search and add exercises from the right →</p>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {newItems.map((it) => {
+                    const ex = exerciseById[it.exercise_id];
+                    return (
+                      <div key={it.exercise_id} className="p-3 bg-[#F3F0EB] rounded-xl space-y-2">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold flex-1 truncate text-sm">{ex?.name || "?"}</p>
+                          <Button variant="ghost" size="sm" onClick={() => removeNewItem(it.exercise_id)}><X size={14} /></Button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="text-[#787672]">Sets</span>
+                          <Input type="text" value={it.sets} onChange={(e) => updateNewItem(it.exercise_id, { sets: e.target.value })} className="w-16 h-7 bg-white text-xs" />
+                          <span className="text-[#787672]">×</span>
+                          <Input type="text" value={it.reps} onChange={(e) => updateNewItem(it.exercise_id, { reps: e.target.value })} className="w-16 h-7 bg-white text-xs" />
+                          <select value={it.frequency} onChange={(e) => updateNewItem(it.exercise_id, { frequency: e.target.value })} className="h-7 rounded-md border border-[#E2DFD8] bg-white px-2 text-xs">
+                            {["Daily", "2× daily", "3× daily", "Every other day", "3× weekly", "Weekly", "As tolerated"].map((f) => <option key={f} value={f}>{f}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Label>Add exercises</Label>
+              <div className="relative mt-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#787672]" />
+                <Input value={exQuery} onChange={(e) => setExQuery(e.target.value)} placeholder="Search exercises…" data-testid="new-tpl-ex-search" className="bg-[#F3F0EB] border-transparent pl-9 h-10" />
+              </div>
+              <div className="grid gap-2 mt-3 max-h-96 overflow-y-auto pr-1">
+                {filteredExercises.length === 0 ? (
+                  <p className="text-sm text-[#787672] text-center py-6">No matching exercises.</p>
+                ) : filteredExercises.map((ex) => (
+                  <button key={ex.exercise_id} type="button" onClick={() => addNewItem(ex)} data-testid={`new-tpl-add-${ex.exercise_id}`} className="text-left p-3 rounded-xl border border-[#E2DFD8] hover:border-[#C96A52] hover:bg-[#C96A52]/5 transition">
+                    <p className="font-semibold text-sm truncate">{ex.name}</p>
+                    <p className="text-xs text-[#787672] mt-0.5">{exCats(ex).join(", ") || "Uncategorized"}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button onClick={createTemplate} disabled={createBusy || !newName.trim() || newItems.length === 0} className="rounded-full bg-[#C96A52] hover:bg-[#B35A44]" data-testid="new-tpl-save">
+              {createBusy ? "Creating…" : "Create template"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
