@@ -22,6 +22,8 @@ export default function Templates() {
   const [newPublic, setNewPublic] = useState(false);
   const [newItems, setNewItems] = useState([]);
   const [exQuery, setExQuery] = useState("");
+  const [editItems, setEditItems] = useState([]);
+  const [editExQuery, setEditExQuery] = useState("");
   const [editing, setEditing] = useState(null); // template object being edited
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -88,7 +90,22 @@ export default function Templates() {
     setEditDesc(tpl.description || "");
     setEditPublic(!!tpl.is_public);
     setShareEmail("");
+    setEditItems(tpl.items || []);
+    setEditExQuery("");
   }
+  function addEditItem(ex) {
+    if (editItems.find((i) => i.exercise_id === ex.exercise_id)) return;
+    setEditItems((prev) => [...prev, {
+      exercise_id: ex.exercise_id,
+      sets: ex.default_sets != null ? String(ex.default_sets) : "3",
+      reps: ex.default_reps != null ? String(ex.default_reps) : "10",
+      duration: ex.default_duration || "",
+      frequency: ex.default_frequency || "Daily",
+      notes: "",
+    }]);
+  }
+  function removeEditItem(exId) { setEditItems((prev) => prev.filter((i) => i.exercise_id !== exId)); }
+  function updateEditItem(exId, patch) { setEditItems((prev) => prev.map((i) => i.exercise_id === exId ? { ...i, ...patch } : i)); }
 
   async function saveEdit() {
     if (!editing) return;
@@ -97,11 +114,12 @@ export default function Templates() {
         name: editName.trim(),
         description: editDesc.trim(),
         is_public: editPublic,
-        items: editing.items || [],
+        items: editItems,
       });
       toast.success("Template updated");
       setTemplates((prev) => prev.map((t) => t.template_id === data.template_id ? { ...data, _relation: "owned" } : t));
       setEditing({ ...editing, ...data });
+      setEditItems(data.items || []);
     } catch (e) { toast.error(formatError(e.response?.data?.detail) || "Could not save"); }
   }
 
@@ -141,14 +159,70 @@ export default function Templates() {
   return (
     <div className="space-y-10" data-testid="templates-page">
             <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <p className="text-xs tracking-[0.2em] uppercase text-[#787672] font-bold">Clinician</p>
-          <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight mt-1">Plan templates</h1>
-          <p className="text-[#787672] mt-2 max-w-xl">
-            Build a reusable set of exercises here, or save any patient's plan as a template. Load one onto a
-            new patient in one click. Share by email with colleagues, or make it public to every clinician.
-          </p>
-        </div>
+                      <div>
+                <p className="text-xs text-[#787672] uppercase tracking-widest font-bold">Exercises ({editItems.length})</p>
+                {editing._relation !== "owned" ? (
+                  <ul className="mt-2 text-sm space-y-0.5 max-h-40 overflow-y-auto">
+                    {editItems.map((it, i) => (<li key={i} className="text-[#3a3a36]">· {it.sets || "?"}×{it.reps || "?"} {it.duration ? `· ${it.duration} hold` : ""} · {it.frequency || "Daily"}</li>))}
+                  </ul>
+                ) : (
+                  <>
+                    {editItems.length === 0 ? (
+                      <p className="text-sm text-[#787672] mt-2">No exercises yet — search below to add some.</p>
+                    ) : (
+                      <div className="space-y-2 mt-2 max-h-56 overflow-y-auto pr-1">
+                        {editItems.map((it) => {
+                          const ex = exerciseById[it.exercise_id];
+                          return (
+                            <div key={it.exercise_id} className="p-3 bg-[#F3F0EB] rounded-xl space-y-2">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold flex-1 truncate text-sm">{ex?.name || it.exercise_id}</p>
+                                <Button variant="ghost" size="sm" onClick={() => removeEditItem(it.exercise_id)}><X size={14} /></Button>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 text-xs">
+                                <span className="text-[#787672]">Sets</span>
+                                <Input type="text" value={it.sets} onChange={(e) => updateEditItem(it.exercise_id, { sets: e.target.value })} className="w-16 h-7 bg-white text-xs" />
+                                <span className="text-[#787672]">×</span>
+                                <Input type="text" value={it.reps} onChange={(e) => updateEditItem(it.exercise_id, { reps: e.target.value })} className="w-16 h-7 bg-white text-xs" />
+                                <select value={it.frequency} onChange={(e) => updateEditItem(it.exercise_id, { frequency: e.target.value })} className="h-7 rounded-md border border-[#E2DFD8] bg-white px-2 text-xs">
+                                  {["Daily", "2× daily", "3× daily", "Every other day", "3× weekly", "Weekly", "As tolerated"].map((f) => <option key={f} value={f}>{f}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="mt-3">
+                      <Label className="text-xs">Add more exercises</Label>
+                      <div className="relative mt-1">
+                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#787672]" />
+                        <Input value={editExQuery} onChange={(e) => setEditExQuery(e.target.value)} placeholder="Search exercises…" data-testid="edit-tpl-ex-search" className="bg-[#F3F0EB] border-transparent pl-9 h-9 text-sm" />
+                      </div>
+                      {editExQuery.trim() && (
+                        <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-[#E2DFD8] bg-white">
+                          {exercises.filter((ex) => (ex.name || "").toLowerCase().includes(editExQuery.trim().toLowerCase())).slice(0, 12).map((ex) => {
+                            const already = editItems.some((i) => i.exercise_id === ex.exercise_id);
+                            return (
+                              <button
+                                key={ex.exercise_id}
+                                type="button"
+                                onClick={() => { if (!already) { addEditItem(ex); setEditExQuery(""); } }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-[#F3F0EB] flex items-center justify-between"
+                                data-testid={`edit-tpl-add-${ex.exercise_id}`}
+                                disabled={already}
+                              >
+                                <span className={already ? "line-through text-[#787672]" : ""}>{ex.name}</span>
+                                {already ? <span className="text-xs text-[#787672]">Added</span> : <Plus size={14} className="text-[#5B7566]" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
         <Button onClick={openCreate} className="rounded-full bg-[#C96A52] hover:bg-[#B35A44] h-11 px-6" data-testid="create-template-btn">
           <Plus size={16} /> New template
         </Button>
