@@ -24,7 +24,7 @@ export default function Templates() {
   const [exQuery, setExQuery] = useState("");
   const [editItems, setEditItems] = useState([]);
   const [editExQuery, setEditExQuery] = useState("");
-  const [editing, setEditing] = useState(null); // template object being edited
+  const [editing, setEditing] = useState(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editPublic, setEditPublic] = useState(false);
@@ -81,8 +81,6 @@ export default function Templates() {
     if (!q) return true;
     return (ex.name || "").toLowerCase().includes(q) || exCats(ex).some((c) => c.toLowerCase().includes(q));
   });
-
-  if (user?.role !== "clinician") return <Navigate to={user?.role === "owner" ? "/owner" : "/login"} replace />;
 
   function openEdit(tpl) {
     setEditing(tpl);
@@ -156,10 +154,61 @@ export default function Templates() {
   const owned = templates.filter((t) => t._relation === "owned");
   const shared = templates.filter((t) => t._relation !== "owned");
 
+  if (user?.role !== "clinician") return <Navigate to={user?.role === "owner" ? "/owner" : "/login"} replace />;
+
   return (
     <div className="space-y-10" data-testid="templates-page">
-            <div className="flex items-start justify-between flex-wrap gap-4">
-                      <div>
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <p className="text-xs tracking-[0.2em] uppercase text-[#787672] font-bold">Clinician</p>
+          <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight mt-1">Plan templates</h1>
+          <p className="text-[#787672] mt-2 max-w-xl">
+            Build a reusable set of exercises here, or save any patient's plan as a template. Load one onto a
+            new patient in one click. Share by email with colleagues, or make it public to every clinician.
+          </p>
+        </div>
+        <Button onClick={openCreate} className="rounded-full bg-[#C96A52] hover:bg-[#B35A44] h-11 px-6" data-testid="create-template-btn">
+          <Plus size={16} /> New template
+        </Button>
+      </div>
+
+      <Section title="My templates" count={owned.length} icon={<Layers size={18} />}>
+        {owned.length === 0 ? (
+          <Empty msg="No templates yet. Click &apos;New template&apos; above to build one." />
+        ) : (
+          <TemplateGrid tpls={owned} onEdit={openEdit} onDelete={deleteTpl} canEdit />
+        )}
+      </Section>
+
+      <Section title="Shared with me / public" count={shared.length} icon={<Users size={18} />}>
+        {shared.length === 0 ? (
+          <Empty msg="Colleagues can share templates with your email, and public templates appear here." />
+        ) : (
+          <TemplateGrid tpls={shared} onEdit={openEdit} onDelete={deleteTpl} />
+        )}
+      </Section>
+
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+        <DialogContent className="rounded-2xl max-w-lg max-h-[85vh] overflow-y-auto" data-testid="edit-template-dialog">
+          <DialogHeader><DialogTitle className="font-display text-2xl">{editing?._relation === "owned" ? "Edit template" : "Template details"}</DialogTitle></DialogHeader>
+          {editing && (
+            <div className="space-y-4">
+              <div>
+                <Label>Name</Label>
+                <Input disabled={editing._relation !== "owned"} value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-[#F3F0EB] border-transparent mt-1" data-testid="edit-tpl-name" />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Input disabled={editing._relation !== "owned"} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="bg-[#F3F0EB] border-transparent mt-1" />
+              </div>
+              {editing._relation === "owned" && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={editPublic} onChange={(e) => setEditPublic(e.target.checked)} className="rounded" data-testid="edit-tpl-public" />
+                  <Globe size={14} /> Share publicly with every clinician
+                </label>
+              )}
+
+              <div>
                 <p className="text-xs text-[#787672] uppercase tracking-widest font-bold">Exercises ({editItems.length})</p>
                 {editing._relation !== "owned" ? (
                   <ul className="mt-2 text-sm space-y-0.5 max-h-40 overflow-y-auto">
@@ -223,52 +272,6 @@ export default function Templates() {
                   </>
                 )}
               </div>
-        <Button onClick={openCreate} className="rounded-full bg-[#C96A52] hover:bg-[#B35A44] h-11 px-6" data-testid="create-template-btn">
-          <Plus size={16} /> New template
-        </Button>
-      </div>
-
-      <Section title="My templates" count={owned.length} icon={<Layers size={18} />}>
-        {owned.length === 0 ? (
-                    <Empty msg="No templates yet. Click &apos;New template&apos; above to build one." />
-        ) : (
-          <TemplateGrid tpls={owned} onEdit={openEdit} onDelete={deleteTpl} canEdit />
-        )}
-      </Section>
-
-      <Section title="Shared with me / public" count={shared.length} icon={<Users size={18} />}>
-        {shared.length === 0 ? (
-          <Empty msg="Colleagues can share templates with your email, and public templates appear here." />
-        ) : (
-          <TemplateGrid tpls={shared} onEdit={openEdit} onDelete={deleteTpl} />
-        )}
-      </Section>
-
-      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
-        <DialogContent className="rounded-2xl max-w-lg max-h-[85vh] overflow-y-auto" data-testid="edit-template-dialog">
-          <DialogHeader><DialogTitle className="font-display text-2xl">{editing?._relation === "owned" ? "Edit template" : "Template details"}</DialogTitle></DialogHeader>
-          {editing && (
-            <div className="space-y-4">
-              <div>
-                <Label>Name</Label>
-                <Input disabled={editing._relation !== "owned"} value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-[#F3F0EB] border-transparent mt-1" data-testid="edit-tpl-name" />
-              </div>
-              <div>
-                <Label>Description</Label>
-                <Input disabled={editing._relation !== "owned"} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="bg-[#F3F0EB] border-transparent mt-1" />
-              </div>
-              {editing._relation === "owned" && (
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={editPublic} onChange={(e) => setEditPublic(e.target.checked)} className="rounded" data-testid="edit-tpl-public" />
-                  <Globe size={14} /> Share publicly with every clinician
-                </label>
-              )}
-              <div>
-                <p className="text-xs text-[#787672] uppercase tracking-widest font-bold">Exercises ({(editing.items || []).length})</p>
-                <ul className="mt-2 text-sm space-y-0.5 max-h-40 overflow-y-auto">
-                  {(editing.items || []).map((it, i) => (<li key={i} className="text-[#3a3a36]">· {it.sets || "?"}×{it.reps || "?"} {it.duration ? `· ${it.duration} hold` : ""} · {it.frequency || "Daily"}</li>))}
-                </ul>
-              </div>
 
               {editing._relation === "owned" && (
                 <div>
@@ -298,7 +301,8 @@ export default function Templates() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="rounded-2xl max-w-3xl max-h-[85vh] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="create-template-dialog">
           <DialogHeader><DialogTitle className="font-display text-2xl">New template</DialogTitle></DialogHeader>
           <div className="grid md:grid-cols-2 gap-6">
