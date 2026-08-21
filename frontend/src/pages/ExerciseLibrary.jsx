@@ -315,7 +315,7 @@ export default function ExerciseLibrary() {
         <div>
           <p className="text-xs tracking-[0.2em] uppercase text-[#787672] font-bold">Library</p>
           <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight mt-1">Exercises</h1>
-          <p className="text-[#787672] mt-2">{exercises.length} exercises · pre-seeded + your custom additions</p>
+          <p className="text-[#787672] mt-2">{exercises.length} exercises · including custom additions </p>
         </div>
         <Dialog open={open} onOpenChange={(v) => {
           if (v) {
