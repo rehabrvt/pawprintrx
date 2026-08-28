@@ -57,4 +57,6 @@ export async function uploadFile(file) {
 export function fileSrc(urlOrId) {
   if (!urlOrId) return "";
   if (urlOrId.startsWith("http")) return urlOrId;
-  if (urlOrId.startsWith("/api/")) return
+  if (urlOrId.startsWith("/api/")) return `${BASE}${urlOrId}`;
+  return `${API}/files/${urlOrId}`;
+}
