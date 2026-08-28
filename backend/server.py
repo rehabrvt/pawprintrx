@@ -861,6 +861,9 @@ async def list_patients(
         if mine == "true":
             q["pinned_by"] = user["user_id"]
         docs = await db.patients.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+    else:
+        q = _owner_filter(user["email"])
+        docs = await db.patients.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
     return docs
 
 def _send_owner_invite_email(recipient: str, clinician_name: str, pet_name: str, signup_url_base: str) -> bool:
