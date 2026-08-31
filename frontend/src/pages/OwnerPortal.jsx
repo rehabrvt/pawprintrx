@@ -291,17 +291,27 @@ export default function OwnerPortal() {
                 return (
                   <div key={it.exercise_id} className={`rounded-2xl p-4 border transition ${done ? "border-[#5B7566] bg-[#5B7566]/5" : "border-[#E2DFD8] bg-[#FAF9F6]"}`} data-testid={`plan-item-${it.exercise_id}`}>
                     <div className="flex items-start gap-3">
-                      <div className="h-12 w-12 rounded-xl bg-[#E8E2D9] flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="h-12 w-12 rounded-xl bg-[#E8E2D9] flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         {ex?.media_url ? (
-                          ex.media_type === "video" ? <video src={fileSrc(ex.media_url)} className="h-full w-full object-cover" /> : <img src={fileSrc(ex.media_url)} alt="" className="h-full w-full object-cover" />
+                          ex.media_type === "video" ? (
+                            <video
+                              src={fileSrc(ex.media_url)}
+                              className="h-full w-full object-cover pointer-events-none"
+                              muted
+                              playsInline
+                              preload="metadata"
+                            />
+                          ) : (
+                            <img src={fileSrc(ex.media_url)} alt="" className="h-full w-full object-cover" />
+                          )
                         ) : <ImageIcon className="text-[#C96A52]" size={18} />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{ex?.name || it.exercise_id}</p>
-                        <p className="text-xs text-[#787672]">{it.sets}×{it.reps} · {it.frequency}</p>
+                        <p className="text-xs text-[#787672] break-words">{it.sets}×{it.reps} · {it.frequency}</p>
                         {it.notes && <p className="text-xs mt-1">{it.notes}</p>}
                       </div>
-                      <Button size="sm" variant={done ? "ghost" : "default"} onClick={() => openLog(plan, it)} data-testid={`log-${it.exercise_id}`} className={done ? "text-[#5B7566]" : "rounded-full bg-[#C96A52] hover:bg-[#B35A44]"}>
+                      <Button size="sm" variant={done ? "ghost" : "default"} onClick={() => openLog(plan, it)} data-testid={`log-${it.exercise_id}`} className={done ? "text-[#5B7566] flex-shrink-0" : "rounded-full bg-[#C96A52] hover:bg-[#B35A44] flex-shrink-0"}>
                         {done ? <CheckCircle2 size={16} /> : "Log"}
                       </Button>
                     </div>
