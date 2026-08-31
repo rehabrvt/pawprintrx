@@ -299,7 +299,7 @@ export default function OwnerPortal() {
                               className="h-full w-full object-cover pointer-events-none"
                               muted
                               playsInline
-                              preload="metadata"
+                              preload="auto"
                             />
                           ) : (
                             <img src={fileSrc(ex.media_url)} alt="" className="h-full w-full object-cover" />
