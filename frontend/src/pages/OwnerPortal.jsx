@@ -289,7 +289,7 @@ export default function OwnerPortal() {
                 const ex = exMap[it.exercise_id];
                 const done = todayCompletedIds.has(it.exercise_id);
                 return (
-                  <div key={it.exercise_id} className={`rounded-2xl p-4 border transition ${done ? "border-[#5B7566] bg-[#5B7566]/5" : "border-[#E2DFD8] bg-[#FAF9F6]"}`} data-testid={`plan-item-${it.exercise_id}`}>
+                  <div key={it.exercise_id} className={`min-w-0 rounded-2xl p-4 border transition ${done ? "border-[#5B7566] bg-[#5B7566]/5" : "border-[#E2DFD8] bg-[#FAF9F6]"}`} data-testid={`plan-item-${it.exercise_id}`}>
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 rounded-xl bg-[#E8E2D9] flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         {ex?.media_url ? (
