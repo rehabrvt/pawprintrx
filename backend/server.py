@@ -1921,43 +1921,33 @@ async def seed():
         {"clinic_id": {"$exists": False}},
         {"$set": {"clinic_id": default_clinic_id}},
     )
-    # admin clinician
-    admin_email = os.environ.get("ADMIN_EMAIL", "clinician@rehab.com")
-    admin_pw = os.environ.get("ADMIN_PASSWORD", "rehab123")
-    admin_doc = await db.users.find_one({"email": admin_email})
-    if not admin_doc:
-        await db.users.insert_one({
-            "user_id": f"user_{uuid.uuid4().hex[:12]}",
-            "email": admin_email,
-            "name": "Lead Clinician",
-            "role": "clinician",
-            "is_admin": True,
-            "approval_status": "approved",
-            "auth_provider": "password",
-            "password_hash": hash_pw(admin_pw),
-            "picture": "",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
+    # admin clinician — created from ADMIN_EMAIL / ADMIN_PASSWORD env vars only.
+    # No hardcoded fallback: if those aren't set on the server, we skip this
+    # instead of creating a guessable default account.
+    admin_email = os.environ.get("ADMIN_EMAIL")
+    admin_pw = os.environ.get("ADMIN_PASSWORD")
+    if admin_email and admin_pw:
+        admin_doc = await db.users.find_one({"email": admin_email})
+        if not admin_doc:
+            await db.users.insert_one({
+                "user_id": f"user_{uuid.uuid4().hex[:12]}",
+                "email": admin_email,
+                "name": "Lead Clinician",
+                "role": "clinician",
+                "is_admin": True,
+                "approval_status": "approved",
+                "auth_provider": "password",
+                "password_hash": hash_pw(admin_pw),
+                "picture": "",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        else:
+            await db.users.update_one(
+                {"email": admin_email},
+                {"$set": {"is_admin": True, "approval_status": "approved"}},
+            )
     else:
-        await db.users.update_one(
-            {"email": admin_email},
-            {"$set": {"is_admin": True, "approval_status": "approved"}},
-        )
-    # demo owner
-    owner_email = "owner@rehab.com"
-    if not await db.users.find_one({"email": owner_email}):
-        await db.users.insert_one({
-            "user_id": f"user_{uuid.uuid4().hex[:12]}",
-            "email": owner_email,
-            "name": "Demo Owner",
-            "role": "owner",
-            "is_admin": False,
-            "approval_status": "approved",
-            "auth_provider": "password",
-            "password_hash": hash_pw("owner123"),
-            "picture": "",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
+        logger.warning("ADMIN_EMAIL/ADMIN_PASSWORD not set — skipping admin account seed.")
     # Promote every email in ADMIN_EMAILS (idempotent). New sign-ups matching one of these
     # emails are also auto-promoted; this loop covers users who already existed before
     # ADMIN_EMAILS was set.
