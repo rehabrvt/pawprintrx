@@ -245,13 +245,12 @@ def _notify_admin_new_clinician(user_doc: dict):
         return False
     body_html = (
         f"<div style='font-family:Manrope,Arial,sans-serif;line-height:1.55;color:#1a1a1a;max-width:560px;margin:0 auto'>"
-        f"<h2 style='font-size:20px;color:#C96A52;margin:0 0 8px'>New clinician awaiting approval</h2>"
-        f"<p><b>{user_doc.get('name','')}</b> just signed up as a clinician.</p>"
+        f"<h2 style='font-size:20px;color:#C96A52;margin:0 0 8px'>New clinician joined</h2>"
+        f"<p><b>{user_doc.get('name','')}</b> just signed up as a clinician and has full access — no approval needed.</p>"
         f"<table style='border-collapse:collapse;font-size:14px'>"
         f"<tr><td style='padding:4px 12px 4px 0;color:#787672'>Email</td><td>{user_doc.get('email','')}</td></tr>"
         f"<tr><td style='padding:4px 12px 4px 0;color:#787672'>Name</td><td>{user_doc.get('name','')}</td></tr>"
         f"</table>"
-        f"<p style='margin-top:14px'>Sign in as admin and head to <b>Approvals</b> to grant access.</p>"
         f"<p style='color:#787672;font-size:12px;border-top:1px solid #E2DFD8;padding-top:10px;margin-top:20px'>PawPrint Rx</p>"
         f"</div>"
     )
@@ -262,7 +261,7 @@ def _notify_admin_new_clinician(user_doc: dict):
             json={
                 "from": os.environ.get("RESEND_FROM_EMAIL", "PawPrint Rx <onboarding@resend.dev>"),
                 "to": [admin_to],
-                "subject": "New clinician sign-up — approval required",
+                "subject": "New clinician sign-up",
                 "html": body_html,
             },
             timeout=15,
@@ -322,8 +321,10 @@ async def register(payload: RegisterIn, response: Response):
         "name": payload.name,
         "role": initial_role,
         "roles": [initial_role],
-        # Admins (from ADMIN_EMAILS) are auto-approved as clinicians regardless of role chosen.
-        "approval_status": "approved" if (is_admin_email or becomes_clinic_admin or not is_clinician) else "pending",
+        # Clinician access is already gated by invite (see checks above), so no
+        # separate admin-approval step is needed — everyone who reaches this
+        # point is either an admin, a clinic admin, or an invited clinician.
+        "approval_status": "approved",
         "is_admin": is_admin_email or becomes_clinic_admin,
         "clinic_id": clinic_id,
         "password_hash": hash_pw(payload.password),
@@ -546,10 +547,9 @@ async def add_role(payload: SwitchRoleIn, user: dict = Depends(get_current_user)
     if role not in roles:
         roles.append(role)
     update = {"roles": roles, "role": role}
-    # Clinician role needs admin approval unless the user is already an admin.
+    # Clinician access is already gated by invite, so it's auto-approved here too.
     if role == "clinician" and not user.get("is_admin"):
-        update["approval_status"] = "pending"
-        _notify_admin_new_clinician({**user, "role": "clinician"})
+        update["approval_status"] = "approved"
         # Mark the invite as used so it can't be reused (but leave the record for audit).
         await db.clinician_invites.update_one(
             {"email": (user.get("email") or "").lower()},
@@ -578,16 +578,9 @@ async def switch_role(payload: SwitchRoleIn, user: dict = Depends(get_current_us
 async def set_role(role: str = Form(...), user: dict = Depends(get_current_user)):
     if role not in ("clinician", "owner"):
         raise HTTPException(status_code=400, detail="Invalid role")
-    # When choosing clinician, set pending unless already admin
-    update = {"role": role}
-    if role == "clinician" and not user.get("is_admin"):
-        update["approval_status"] = "pending"
-    elif role == "owner":
-        update["approval_status"] = "approved"
+    # Clinician access is already gated by invite, so it's auto-approved here too.
+    update = {"role": role, "approval_status": "approved"}
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": update})
-    if role == "clinician" and not user.get("is_admin"):
-        fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
-        _notify_admin_new_clinician(fresh or {})
     return {"ok": True, "role": role, "approval_status": update.get("approval_status", "approved")}
 
 
@@ -1978,6 +1971,12 @@ async def seed():
     await db.users.update_many(
         {"approval_status": {"$exists": False}},
         {"$set": {"approval_status": "approved", "is_admin": False}},
+    )
+    # Approval step removed: clinician access is already gated by invite, so
+    # auto-approve any clinicians left over in "pending" status from before.
+    await db.users.update_many(
+        {"role": "clinician", "approval_status": "pending"},
+        {"$set": {"approval_status": "approved"}},
     )
     # Backfill: seed `roles[]` from the legacy single `role` field for users created before dual-role.
     cursor = db.users.find({"$or": [{"roles": {"$exists": False}}, {"roles": []}, {"roles": None}]}, {"_id": 0, "user_id": 1, "role": 1})
