@@ -29,6 +29,15 @@ export function exCats(ex) {
   return ex?.category ? [ex.category] : [];
 }
 
+// Turns a YouTube (or youtu.be) watch link into an embeddable player URL.
+// Returns null if the link isn't a recognizable YouTube URL (e.g. Vimeo,
+// or empty) — callers fall back to the uploaded media in that case.
+export function youtubeEmbedUrl(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+}
+
 function RelatedExercisePicker({ label, helpText, field, form, onToggle, allExercises, editingId }) {
   const [query, setQuery] = useState("");
   const selectedIds = Array.isArray(form[field]) ? form[field] : [];
@@ -448,7 +457,7 @@ export default function ExerciseLibrary() {
                   data-testid="ex-video-url"
                   className="bg-[#F3F0EB] border-transparent mt-1"
                 />
-                <p className="text-xs text-[#787672] mt-1">Embedded as thumbnail + QR code in the printed plan.</p>
+                <p className="text-xs text-[#787672] mt-1">Shown in the exercise library and used for the QR code in printed plans.</p>
               </div>
               <RelatedExercisePicker
                 label="Variations"
@@ -536,7 +545,18 @@ export default function ExerciseLibrary() {
           </div>
         ) : filtered.map((ex) => (
           <div key={ex.exercise_id} className="bg-white border border-[#E2DFD8] rounded-3xl overflow-hidden flex flex-col" data-testid={`ex-card-${ex.exercise_id}`}>
-            {(ex.media || []).length > 1 ? (
+            {youtubeEmbedUrl(ex.video_url) ? (
+              <div className="aspect-video bg-[#E8E2D9] overflow-hidden">
+                <iframe
+                  src={youtubeEmbedUrl(ex.video_url)}
+                  title={ex.name}
+                  className="h-full w-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (ex.media || []).length > 1 ? (
               <div className="grid grid-cols-3 gap-0.5 bg-[#E8E2D9]">
                 {ex.media.map((m, i) => (
                   <div key={i} className="aspect-square overflow-hidden">
