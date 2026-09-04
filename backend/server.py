@@ -199,11 +199,19 @@ class CategoryRenameIn(BaseModel):
     name: str
     color: Optional[str] = None  # if provided, update color too
 
+class WeeklyScheduleDay(BaseModel):
+    day_number: int  # 1-7
+    categories: List[str] = Field(default_factory=list)
+    rest: bool = False
+
 class PlanIn(BaseModel):
     patient_id: str
     title: str = "Rehab Plan"
     items: List[PlanItem] = []
     notes: str = ""
+    # Optional weekly training-split calendar: up to 7 entries, each listing
+    # which exercise categories are trained that day (or marked as rest).
+    weekly_schedule: List[WeeklyScheduleDay] = Field(default_factory=list)
 
 class TemplateIn(BaseModel):
     name: str
