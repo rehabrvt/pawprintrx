@@ -176,6 +176,33 @@ def build_plan_pdf(
         elements.append(Paragraph("CLINICIAN NOTES", label_style))
         elements.append(Paragraph(plan["notes"], body_style))
 
+    weekly_schedule = plan.get("weekly_schedule") or []
+    if any((d.get("categories") or d.get("rest")) for d in weekly_schedule):
+        elements.append(Spacer(1, 0.25 * inch))
+        elements.append(Paragraph("WEEKLY SCHEDULE", label_style))
+        elements.append(Spacer(1, 0.06 * inch))
+        by_day = {d.get("day_number"): d for d in weekly_schedule}
+        rows = [[Paragraph("DAY", label_style), Paragraph("FOCUS", label_style)]]
+        for n in range(1, 8):
+            d = by_day.get(n, {})
+            if d.get("rest"):
+                focus = "Rest day"
+            else:
+                cats = d.get("categories") or []
+                focus = ", ".join(cats) if cats else "—"
+            rows.append([Paragraph(f"Day {n}", body_style), Paragraph(focus, body_style)])
+        sched_tbl = Table(rows, colWidths=[1.1 * inch, 6.0 * inch])
+        sched_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), SECONDARY),
+            ("BOX", (0, 0), (-1, -1), 0.5, SECONDARY),
+            ("INNERGRID", (0, 0), (-1, -1), 0.25, SECONDARY),
+            ("LEFTPADDING", (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(sched_tbl)
+
     elements.append(Spacer(1, 0.35 * inch))
     elements.append(Paragraph("EXERCISES", label_style))
     elements.append(Spacer(1, 0.1 * inch))
