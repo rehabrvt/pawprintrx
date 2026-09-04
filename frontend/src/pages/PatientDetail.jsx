@@ -4,6 +4,7 @@ import { api, formatError, fileSrc } from "../lib/api";
 import { setCategoryColors, getCategoryColor, colorWithAlpha } from "../lib/categoryColors";
 import { CategoryChip } from "../components/CategoryChip";
 import { exCats } from "./ExerciseLibrary";
+import { WEEKLY_CATEGORIES, makeEmptyWeeklySchedule, normalizeWeeklySchedule, weeklyScheduleHasContent } from "../lib/weeklyCategories";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -96,6 +97,7 @@ export default function PatientDetail() {
   const [planTitle, setPlanTitle] = useState("Rehab Plan");
   const [planNotes, setPlanNotes] = useState("");
   const [items, setItems] = useState([]);
+  const [weeklySchedule, setWeeklySchedule] = useState(makeEmptyWeeklySchedule());
   const [editingPlanId, setEditingPlanId] = useState(null);
 
   async function loadAll() {
@@ -284,18 +286,32 @@ export default function PatientDetail() {
   function removeItem(eid) { setItems(items.filter((i) => i.exercise_id !== eid)); }
   function updateItem(eid, patch) { setItems(items.map((i) => i.exercise_id === eid ? { ...i, ...patch } : i)); }
 
+  function toggleDayRest(dayNumber) {
+    setWeeklySchedule((prev) => prev.map((d) => d.day_number === dayNumber
+      ? { ...d, rest: !d.rest, categories: !d.rest ? [] : d.categories }
+      : d));
+  }
+  function toggleDayCategory(dayNumber, catName) {
+    setWeeklySchedule((prev) => prev.map((d) => {
+      if (d.day_number !== dayNumber) return d;
+      const has = d.categories.includes(catName);
+      return { ...d, rest: false, categories: has ? d.categories.filter((c) => c !== catName) : [...d.categories, catName] };
+    }));
+  }
+
   function startEditPlan(pl) {
     setEditingPlanId(pl.plan_id);
     setPlanTitle(pl.title);
     setPlanNotes(pl.notes || "");
     setItems(pl.items || []);
+    setWeeklySchedule(normalizeWeeklySchedule(pl.weekly_schedule));
   }
-  function resetPlanForm() { setEditingPlanId(null); setPlanTitle("Rehab Plan"); setPlanNotes(""); setItems([]); }
+  function resetPlanForm() { setEditingPlanId(null); setPlanTitle("Rehab Plan"); setPlanNotes(""); setItems([]); setWeeklySchedule(makeEmptyWeeklySchedule()); }
 
   async function savePlan() {
     if (items.length === 0) { toast.error("Add at least one exercise"); return; }
     try {
-      const payload = { patient_id: id, title: planTitle, items, notes: planNotes };
+      const payload = { patient_id: id, title: planTitle, items, notes: planNotes, weekly_schedule: weeklySchedule };
       if (editingPlanId) await api.put(`/plans/${editingPlanId}`, payload);
       else await api.post(`/plans`, payload);
       toast.success("Plan saved");
@@ -517,6 +533,54 @@ export default function PatientDetail() {
         </TabsList>
 
         <TabsContent value="plan" className="space-y-6 pt-6">
+          <div className="bg-white border border-[#E2DFD8] rounded-3xl p-6">
+            <h3 className="font-display text-xl font-semibold">
+              Weekly training split <span className="text-sm font-normal text-[#787672]">(optional — for sport & performance dogs)</span>
+            </h3>
+            <div className="flex flex-wrap gap-1.5 mt-2 mb-4">
+              {WEEKLY_CATEGORIES.map((c) => (
+                <span key={c.name} className="text-[11px] px-2.5 py-1 rounded-full bg-[#F3F0EB] text-[#787672] font-semibold">
+                  {c.name} <span className="text-[#C96A52]">· {c.guidance}</span>
+                </span>
+              ))}
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {weeklySchedule.map((d) => (
+                <div key={d.day_number} className={`rounded-2xl p-3 border ${d.rest ? "border-[#E2DFD8] bg-[#F3F0EB]" : "border-[#E2DFD8] bg-white"}`} data-testid={`weekly-day-${d.day_number}`}>
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-sm">Day {d.day_number}</p>
+                    <button
+                      type="button"
+                      onClick={() => toggleDayRest(d.day_number)}
+                      data-testid={`weekly-day-rest-${d.day_number}`}
+                      className={`text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full transition ${d.rest ? "bg-[#787672] text-white" : "bg-[#E8E2D9] text-[#787672] hover:bg-[#E2DFD8]"}`}
+                    >
+                      Rest
+                    </button>
+                  </div>
+                  {!d.rest && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {WEEKLY_CATEGORIES.map((c) => {
+                        const active = d.categories.includes(c.name);
+                        return (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => toggleDayCategory(d.day_number, c.name)}
+                            data-testid={`weekly-day-${d.day_number}-cat-${c.name.replace(/\s+/g, "-")}`}
+                            className={`text-[11px] px-2 py-1 rounded-full border transition ${active ? "bg-[#C96A52] border-[#C96A52] text-white" : "bg-[#F3F0EB] border-transparent text-[#3a3a36] hover:border-[#C96A52]/40"}`}
+                          >
+                            {c.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="grid lg:grid-cols-2 gap-6">
             <div className="bg-white border border-[#E2DFD8] rounded-3xl p-6">
               <h3 className="font-display text-xl font-semibold">Build {editingPlanId ? "edit" : "new"} plan</h3>
@@ -662,6 +726,15 @@ export default function PatientDetail() {
                       ))}
                       {pl.items?.length > 4 && <p className="text-xs text-[#787672]">+ {pl.items.length - 4} more</p>}
                     </div>
+                    {weeklyScheduleHasContent(pl.weekly_schedule) && (
+                      <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-[#E2DFD8]" data-testid={`plan-${pl.plan_id}-weekly`}>
+                        {pl.weekly_schedule.slice().sort((a, b) => a.day_number - b.day_number).map((d) => (
+                          <span key={d.day_number} className="text-[10px] px-2 py-1 rounded-full bg-[#F3F0EB] text-[#787672] font-semibold">
+                            D{d.day_number}: {d.rest ? "Rest" : (d.categories || []).join(", ") || "—"}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex gap-2 mt-4 pt-4 border-t border-[#E2DFD8]">
                       <Button size="sm" variant="outline" onClick={() => downloadPdf(pl.plan_id, `${patient.name}-${pl.title}`)} data-testid={`pdf-download-${pl.plan_id}`} className="rounded-full border-[#E2DFD8]">
                         <Download size={14} /> PDF
