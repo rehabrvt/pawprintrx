@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { toast } from "sonner";
 import { Heart, CheckCircle2, NotebookPen, ImageIcon, Video, Send, ExternalLink } from "lucide-react";
 import { youtubeEmbedUrl } from "./ExerciseLibrary";
+import { weeklyScheduleHasContent } from "../lib/weeklyCategories";
 
 export default function OwnerPortal() {
   const [patients, setPatients] = useState([]);
@@ -294,6 +295,18 @@ export default function OwnerPortal() {
               <span className="text-xs uppercase tracking-widest text-[#787672]">{plan.items?.length || 0} exercises</span>
             </div>
             {plan.notes && <p className="text-sm text-[#787672] mt-2">{plan.notes}</p>}
+            {weeklyScheduleHasContent(plan.weekly_schedule) && (
+              <div className="flex flex-wrap gap-1.5 mt-3" data-testid={`plan-${plan.plan_id}-weekly`}>
+                {plan.weekly_schedule.slice().sort((a, b) => a.day_number - b.day_number).map((d) => (
+                  <span
+                    key={d.day_number}
+                    className={`text-[11px] px-2.5 py-1 rounded-full font-semibold ${d.rest ? "bg-[#E8E2D9] text-[#787672]" : "bg-[#5B7566]/10 text-[#5B7566]"}`}
+                  >
+                    Day {d.day_number}: {d.rest ? "Rest" : (d.categories || []).join(" + ") || "—"}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="grid sm:grid-cols-2 gap-3 mt-5">
               {plan.items?.map((it) => {
                 const ex = exMap[it.exercise_id];
