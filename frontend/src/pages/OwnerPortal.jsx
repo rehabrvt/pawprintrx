@@ -9,6 +9,7 @@ import { Slider } from "../components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { Heart, CheckCircle2, NotebookPen, ImageIcon, Video, Send, ExternalLink } from "lucide-react";
+import { youtubeEmbedUrl } from "./ExerciseLibrary";
 
 export default function OwnerPortal() {
   const [patients, setPatients] = useState([]);
@@ -25,6 +26,15 @@ export default function OwnerPortal() {
   const [notes, setNotes] = useState("");
   const [photo, setPhoto] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  // exercise detail view (description/instructions popup)
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewExercise, setViewExercise] = useState(null);
+  function openView(ex) {
+    if (!ex) return;
+    setViewExercise(ex);
+    setViewOpen(true);
+  }
 
   // Owner video upload
   const [videoFile, setVideoFile] = useState(null);
@@ -289,7 +299,15 @@ export default function OwnerPortal() {
                 const ex = exMap[it.exercise_id];
                 const done = todayCompletedIds.has(it.exercise_id);
                 return (
-                  <div key={it.exercise_id} className={`min-w-0 rounded-2xl p-4 border transition ${done ? "border-[#5B7566] bg-[#5B7566]/5" : "border-[#E2DFD8] bg-[#FAF9F6]"}`} data-testid={`plan-item-${it.exercise_id}`}>
+                  <div
+                    key={it.exercise_id}
+                    onClick={() => openView(ex)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter") openView(ex); }}
+                    className={`min-w-0 rounded-2xl p-4 border transition cursor-pointer hover:border-[#C96A52]/40 ${done ? "border-[#5B7566] bg-[#5B7566]/5" : "border-[#E2DFD8] bg-[#FAF9F6]"}`}
+                    data-testid={`plan-item-${it.exercise_id}`}
+                  >
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 rounded-xl bg-[#E8E2D9] flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         {ex?.media_url ? (
@@ -311,7 +329,7 @@ export default function OwnerPortal() {
                         <p className="text-xs text-[#787672] break-words">{it.sets}×{it.reps} · {it.frequency}</p>
                         {it.notes && <p className="text-xs mt-1">{it.notes}</p>}
                       </div>
-                      <Button size="sm" variant={done ? "ghost" : "default"} onClick={() => openLog(plan, it)} data-testid={`log-${it.exercise_id}`} className={done ? "text-[#5B7566] flex-shrink-0" : "rounded-full bg-[#C96A52] hover:bg-[#B35A44] flex-shrink-0"}>
+                      <Button size="sm" variant={done ? "ghost" : "default"} onClick={(e) => { e.stopPropagation(); openLog(plan, it); }} data-testid={`log-${it.exercise_id}`} className={done ? "text-[#5B7566] flex-shrink-0" : "rounded-full bg-[#C96A52] hover:bg-[#B35A44] flex-shrink-0"}>
                         {done ? <CheckCircle2 size={16} /> : "Log"}
                       </Button>
                     </div>
@@ -419,6 +437,55 @@ export default function OwnerPortal() {
             <Button onClick={submitLog} disabled={busy} className="rounded-full bg-[#C96A52] hover:bg-[#B35A44]" data-testid="log-submit">
               {busy ? "Saving…" : "Log it"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="rounded-2xl max-w-xl max-h-[85vh] overflow-y-auto" data-testid="exercise-view-dialog">
+          <DialogHeader><DialogTitle className="font-display text-2xl">{viewExercise?.name || "Exercise"}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            {youtubeEmbedUrl(viewExercise?.video_url) ? (
+              <div className="aspect-video bg-[#E8E2D9] rounded-xl overflow-hidden">
+                <iframe
+                  src={youtubeEmbedUrl(viewExercise.video_url)}
+                  title={viewExercise?.name}
+                  className="h-full w-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : viewExercise?.media_url ? (
+              <div className="rounded-xl overflow-hidden bg-[#E8E2D9]">
+                {viewExercise.media_type === "video" ? (
+                  <video src={fileSrc(viewExercise.media_url)} className="w-full max-h-72 object-cover" controls />
+                ) : (
+                  <img src={fileSrc(viewExercise.media_url)} alt="" className="w-full max-h-72 object-cover" />
+                )}
+              </div>
+            ) : null}
+
+            {viewExercise?.description && (
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-bold text-[#787672]">What it's for</Label>
+                <p className="text-sm mt-1">{viewExercise.description}</p>
+              </div>
+            )}
+
+            {viewExercise?.instructions && (
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-bold text-[#787672]">How to do it</Label>
+                <p className="text-sm mt-1 whitespace-pre-wrap">{viewExercise.instructions}</p>
+              </div>
+            )}
+
+            {!viewExercise?.description && !viewExercise?.instructions && (
+              <p className="text-sm text-[#787672]">No description added for this exercise yet.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setViewOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
