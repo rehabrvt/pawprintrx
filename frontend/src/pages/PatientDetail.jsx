@@ -98,6 +98,8 @@ export default function PatientDetail() {
   const [planNotes, setPlanNotes] = useState("");
   const [items, setItems] = useState([]);
   const [weeklySchedule, setWeeklySchedule] = useState(makeEmptyWeeklySchedule());
+  const [weeklyBuilderOpen, setWeeklyBuilderOpen] = useState(false);
+  const weeklyBuilderInitRef = useRef(false);
   const [editingPlanId, setEditingPlanId] = useState(null);
 
   async function loadAll() {
@@ -130,7 +132,7 @@ export default function PatientDetail() {
   const [siblings, setSiblings] = useState([]);
   const [siblingsBump, setSiblingsBump] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", last_name: "" });
+  const [editForm, setEditForm] = useState({ name: "", last_name: "", patient_type: "rehab" });
   const [editBusy, setEditBusy] = useState(false);
   const [hhBusy, setHhBusy] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null); // 'archive' | 'permanent' | null
@@ -168,6 +170,13 @@ export default function PatientDetail() {
   }
 
   useEffect(() => {
+    if (patient && !weeklyBuilderInitRef.current) {
+      setWeeklyBuilderOpen(patient.patient_type === "sport");
+      weeklyBuilderInitRef.current = true;
+    }
+  }, [patient]);
+
+  useEffect(() => {
     if (!patient?.owner_email) { setSiblings([]); return; }
     api.get("/patients").then((r) => {
       setSiblings((r.data || []).filter((p) => p.owner_email === patient.owner_email && p.patient_id !== patient.patient_id));
@@ -175,7 +184,7 @@ export default function PatientDetail() {
   }, [patient?.owner_email, patient?.patient_id, siblingsBump]);
 
   function openEdit() {
-    setEditForm({ name: patient.name || "", last_name: patient.last_name || "" });
+    setEditForm({ name: patient.name || "", last_name: patient.last_name || "", patient_type: patient.patient_type || "rehab" });
     setEditOpen(true);
   }
   async function saveEdit() {
@@ -190,6 +199,7 @@ export default function PatientDetail() {
         condition: patient.condition || "",
         notes: patient.notes || "",
         owner_email: patient.owner_email || "",
+        patient_type: editForm.patient_type || "rehab",
       };
       const { data } = await api.put(`/patients/${id}`, payload);
       setPatient(data);
@@ -534,18 +544,28 @@ export default function PatientDetail() {
 
         <TabsContent value="plan" className="space-y-6 pt-6">
           <div className="bg-white border border-[#E2DFD8] rounded-3xl p-6">
-            <h3 className="font-display text-xl font-semibold">
-              Weekly training split <span className="text-sm font-normal text-[#787672]">(optional — for sport & performance dogs)</span>
-            </h3>
-            <div className="flex flex-wrap gap-1.5 mt-2 mb-4">
-              {WEEKLY_CATEGORIES.map((c) => (
-                <span key={c.name} className="text-[11px] px-2.5 py-1 rounded-full bg-[#F3F0EB] text-[#787672] font-semibold">
-                  {c.name} <span className="text-[#C96A52]">· {c.guidance}</span>
-                </span>
-              ))}
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {weeklySchedule.map((d) => (
+            <button
+              type="button"
+              onClick={() => setWeeklyBuilderOpen((o) => !o)}
+              data-testid="weekly-builder-toggle"
+              className="w-full flex items-center justify-between gap-3 text-left"
+            >
+              <h3 className="font-display text-xl font-semibold">
+                Weekly training split <span className="text-sm font-normal text-[#787672]">(optional — for sport & performance dogs)</span>
+              </h3>
+              <span className="text-xs uppercase tracking-widest font-bold text-[#787672] flex-shrink-0">{weeklyBuilderOpen ? "Hide" : "Show"}</span>
+            </button>
+            {weeklyBuilderOpen && (
+              <>
+                <div className="flex flex-wrap gap-1.5 mt-4 mb-4">
+                  {WEEKLY_CATEGORIES.map((c) => (
+                    <span key={c.name} className="text-[11px] px-2.5 py-1 rounded-full bg-[#F3F0EB] text-[#787672] font-semibold">
+                      {c.name} <span className="text-[#C96A52]">· {c.guidance}</span>
+                    </span>
+                  ))}
+                </div>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {weeklySchedule.map((d) => (
                 <div key={d.day_number} className={`rounded-2xl p-3 border ${d.rest ? "border-[#E2DFD8] bg-[#F3F0EB]" : "border-[#E2DFD8] bg-white"}`} data-testid={`weekly-day-${d.day_number}`}>
                   <div className="flex items-center justify-between">
                     <p className="font-semibold text-sm">Day {d.day_number}</p>
@@ -578,7 +598,9 @@ export default function PatientDetail() {
                   )}
                 </div>
               ))}
-            </div>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="grid lg:grid-cols-2 gap-6">
@@ -878,6 +900,23 @@ export default function PatientDetail() {
               {siblings.length > 0 && editForm.last_name && (
                 <p className="text-xs text-[#787672] mt-1">You'll be asked if you want to apply this last name to {siblings.length} other pet{siblings.length === 1 ? "" : "s"} in this household.</p>
               )}
+            </div>
+            <div>
+              <Label>Patient type</Label>
+              <div className="flex gap-2 mt-1">
+                {[{ v: "rehab", label: "Rehab" }, { v: "sport", label: "Sport / Performance" }].map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, patient_type: opt.v })}
+                    data-testid={`edit-patient-type-${opt.v}`}
+                    className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${editForm.patient_type === opt.v ? "bg-[#C96A52] border-[#C96A52] text-white" : "bg-[#F3F0EB] border-transparent text-[#3a3a36] hover:border-[#C96A52]/40"}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[#787672] mt-1">Adjusts default emphasis in the plan builder and owner view.</p>
             </div>
           </div>
           <DialogFooter>
