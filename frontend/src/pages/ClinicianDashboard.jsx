@@ -9,7 +9,7 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Dog, Search, Download, ArchiveRestore, Archive, Star } from "lucide-react";
 
-const empty = { name: "", last_name: "", breed: "", age_years: "", weight_kg: "", condition: "", notes: "", owner_email: "" };
+const empty = { name: "", last_name: "", breed: "", age_years: "", weight_kg: "", condition: "", notes: "", owner_email: "", patient_type: "rehab" };
 
 export default function ClinicianDashboard() {
   const [patients, setPatients] = useState([]);
@@ -217,6 +217,23 @@ export default function ClinicianDashboard() {
                 <Input type="number" step="0.1" value={form.weight_kg} onChange={(e) => setForm({ ...form, weight_kg: e.target.value })} data-testid="patient-weight" className="bg-[#F3F0EB] border-transparent focus-visible:border-[#C96A52] focus-visible:ring-1 focus-visible:ring-[#C96A52] mt-1" />
               </div>
               <div className="col-span-2">
+                <Label>Patient type</Label>
+                <div className="flex gap-2 mt-1">
+                  {[{ v: "rehab", label: "Rehab" }, { v: "sport", label: "Sport / Performance" }].map((opt) => (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      onClick={() => setForm({ ...form, patient_type: opt.v })}
+                      data-testid={`patient-type-${opt.v}`}
+                      className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${form.patient_type === opt.v ? "bg-[#C96A52] border-[#C96A52] text-white" : "bg-[#F3F0EB] border-transparent text-[#3a3a36] hover:border-[#C96A52]/40"}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-[#787672] mt-1">Just adjusts default emphasis in the plan builder and owner view — you can still add either kind of plan either way.</p>
+              </div>
+              <div className="col-span-2">
                 <Label>Owner email (for tracking access)</Label>
                 <Input type="email" value={form.owner_email} onChange={(e) => setForm({ ...form, owner_email: e.target.value })} data-testid="patient-owner-email" className="bg-[#F3F0EB] border-transparent focus-visible:border-[#C96A52] focus-visible:ring-1 focus-visible:ring-[#C96A52] mt-1" />
                 <p className="text-xs text-[#787672] mt-1">If this owner already has another pet here, just re-use the same email — they'll see all their pets in one account.</p>
@@ -269,11 +286,18 @@ export default function ClinicianDashboard() {
                   <span className="text-[10px] uppercase tracking-widest font-bold text-[#787672] bg-[#F3F0EB] px-2 py-1 rounded-full">Archived</span>
                 )}
               </div>
-              {p.condition && (
-                <span className="inline-block mt-4 text-xs bg-[#E8E2D9] text-[#2C312E] px-3 py-1 rounded-full font-semibold">
-                  {p.condition}
-                </span>
-              )}
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                {p.patient_type === "sport" && (
+                  <span className="inline-block text-xs bg-[#C96A52]/10 text-[#C96A52] px-3 py-1 rounded-full font-semibold">
+                    Sport
+                  </span>
+                )}
+                {p.condition && (
+                  <span className="inline-block text-xs bg-[#E8E2D9] text-[#2C312E] px-3 py-1 rounded-full font-semibold">
+                    {p.condition}
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
                 <div><p className="text-xs text-[#787672] uppercase tracking-widest">Age</p><p className="font-semibold">{p.age_years ?? "—"} yrs</p></div>
                 <div><p className="text-xs text-[#787672] uppercase tracking-widest">Weight</p><p className="font-semibold">{p.weight_kg ?? "—"} kg</p></div>
