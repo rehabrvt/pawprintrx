@@ -288,25 +288,21 @@ export default function OwnerPortal() {
           <p className="text-[#787672] mt-2">Your clinician hasn't built a plan for {selectedPatient?.name} yet.</p>
         </div>
       ) : (
-        plans.map((plan) => (
-          <div key={plan.plan_id} className="bg-white border border-[#E2DFD8] rounded-3xl p-6">
-            <div className="flex items-baseline justify-between gap-3">
-              <h3 className="font-display text-2xl font-semibold">{plan.title}</h3>
-              <span className="text-xs uppercase tracking-widest text-[#787672]">{plan.items?.length || 0} exercises</span>
+        plans.map((plan) => {
+          const isSport = selectedPatient?.patient_type === "sport";
+          const weeklyBlock = weeklyScheduleHasContent(plan.weekly_schedule) ? (
+            <div className="flex flex-wrap gap-1.5 mt-3" data-testid={`plan-${plan.plan_id}-weekly`}>
+              {plan.weekly_schedule.slice().sort((a, b) => a.day_number - b.day_number).map((d) => (
+                <span
+                  key={d.day_number}
+                  className={`text-[11px] px-2.5 py-1 rounded-full font-semibold ${d.rest ? "bg-[#E8E2D9] text-[#787672]" : "bg-[#5B7566]/10 text-[#5B7566]"}`}
+                >
+                  Day {d.day_number}: {d.rest ? "Rest" : (d.categories || []).join(" + ") || "—"}
+                </span>
+              ))}
             </div>
-            {plan.notes && <p className="text-sm text-[#787672] mt-2">{plan.notes}</p>}
-            {weeklyScheduleHasContent(plan.weekly_schedule) && (
-              <div className="flex flex-wrap gap-1.5 mt-3" data-testid={`plan-${plan.plan_id}-weekly`}>
-                {plan.weekly_schedule.slice().sort((a, b) => a.day_number - b.day_number).map((d) => (
-                  <span
-                    key={d.day_number}
-                    className={`text-[11px] px-2.5 py-1 rounded-full font-semibold ${d.rest ? "bg-[#E8E2D9] text-[#787672]" : "bg-[#5B7566]/10 text-[#5B7566]"}`}
-                  >
-                    Day {d.day_number}: {d.rest ? "Rest" : (d.categories || []).join(" + ") || "—"}
-                  </span>
-                ))}
-              </div>
-            )}
+          ) : null;
+          const itemsBlock = (
             <div className="grid sm:grid-cols-2 gap-3 mt-5">
               {plan.items?.map((it) => {
                 const ex = exMap[it.exercise_id];
@@ -350,8 +346,28 @@ export default function OwnerPortal() {
                 );
               })}
             </div>
-          </div>
-        ))
+          );
+          return (
+            <div key={plan.plan_id} className="bg-white border border-[#E2DFD8] rounded-3xl p-6">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="font-display text-2xl font-semibold">{plan.title}</h3>
+                <span className="text-xs uppercase tracking-widest text-[#787672]">{plan.items?.length || 0} exercises</span>
+              </div>
+              {plan.notes && <p className="text-sm text-[#787672] mt-2">{plan.notes}</p>}
+              {isSport ? (
+                <>
+                  {weeklyBlock}
+                  {itemsBlock}
+                </>
+              ) : (
+                <>
+                  {itemsBlock}
+                  {weeklyBlock}
+                </>
+              )}
+            </div>
+          );
+        })
       )}
 
       <div className="bg-white border border-[#E2DFD8] rounded-3xl p-6" data-testid="owner-video-upload">
