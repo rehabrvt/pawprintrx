@@ -143,6 +143,10 @@ class PatientIn(BaseModel):
     notes: Optional[str] = ""
     owner_email: Optional[str] = ""
     coparent_emails: Optional[List[str]] = []
+    # Cosmetic tag only — adjusts default UI emphasis (e.g. weekly-schedule
+    # builder expanded by default, owner portal ordering). Does not change
+    # what data a patient can have.
+    patient_type: Literal["rehab", "sport"] = "rehab"
 
 class ExerciseIn(BaseModel):
     name: str
