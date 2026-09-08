@@ -415,7 +415,7 @@ export default function ExerciseLibrary() {
               <div className="col-span-2"><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="ex-description" className="bg-[#F3F0EB] border-transparent mt-1" /></div>
               <div className="col-span-2"><Label>Instructions</Label><Textarea rows={3} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} data-testid="ex-instructions" className="bg-[#F3F0EB] border-transparent mt-1" /></div>
               <div className="col-span-2">
-                <Label>Demo images / videos <span className="text-xs text-[#787672] font-normal">· up to 3</span></Label>
+                <Label>Demo images / videos <span className="text-xs text-[#787672] font-normal">· up to 3 · images are used as the card preview</span></Label>
                 <Input
                   type="file"
                   accept="image/*,video/*"
@@ -448,7 +448,7 @@ export default function ExerciseLibrary() {
                 )}
               </div>
               <div className="col-span-2">
-                <Label>Or video link (YouTube / Vimeo)</Label>
+                <Label>YouTube / Vimeo link <span className="text-xs text-[#787672] font-normal">· optional, in addition to images above</span></Label>
                 <Input
                   type="url"
                   placeholder="https://youtube.com/watch?v=..."
@@ -457,7 +457,7 @@ export default function ExerciseLibrary() {
                   data-testid="ex-video-url"
                   className="bg-[#F3F0EB] border-transparent mt-1"
                 />
-                <p className="text-xs text-[#787672] mt-1">Shown in the exercise library and used for the QR code in printed plans.</p>
+                <p className="text-xs text-[#787672] mt-1">Used for the QR code in printed plans. If this exercise also has an image, the image is shown as the card preview and the video is reachable via a "▶ Video" link.</p>
               </div>
               <RelatedExercisePicker
                 label="Variations"
@@ -543,9 +543,37 @@ export default function ExerciseLibrary() {
             <p className="text-[#787672] mt-2 text-sm">Try a different category or clear the search.</p>
             <Button variant="ghost" onClick={() => { setQuery(""); setActiveCategories([]); }} className="mt-3 text-[#C96A52]">Clear filters</Button>
           </div>
-        ) : filtered.map((ex) => (
+        ) : filtered.map((ex) => {
+          const hasVideo = !!youtubeEmbedUrl(ex.video_url);
+          const imageMedia = (ex.media || []).filter((m) => m.type !== "video");
+          const hasImage = imageMedia.length > 0 || (ex.media_url && ex.media_type !== "video");
+          return (
           <div key={ex.exercise_id} className="bg-white border border-[#E2DFD8] rounded-3xl overflow-hidden flex flex-col" data-testid={`ex-card-${ex.exercise_id}`}>
-            {youtubeEmbedUrl(ex.video_url) ? (
+            {imageMedia.length > 1 ? (
+              <div className="relative">
+                <div className="grid grid-cols-3 gap-0.5 bg-[#E8E2D9]">
+                  {imageMedia.map((m, i) => (
+                    <div key={i} className="aspect-square overflow-hidden">
+                      <img src={fileSrc(m.url)} alt={`${ex.name} ${i + 1}`} className="h-full w-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+                {hasVideo && (
+                  <a href={ex.video_url} target="_blank" rel="noreferrer" className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 text-white text-[11px] font-semibold px-2 py-1 rounded-full hover:bg-black/85" data-testid={`ex-video-badge-${ex.exercise_id}`}>
+                    ▶ Video
+                  </a>
+                )}
+              </div>
+            ) : hasImage ? (
+              <div className="aspect-video bg-[#E8E2D9] overflow-hidden relative">
+                <img src={fileSrc(imageMedia[0]?.url || ex.media_url)} alt={ex.name} className="h-full w-full object-cover" />
+                {hasVideo && (
+                  <a href={ex.video_url} target="_blank" rel="noreferrer" className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 text-white text-[11px] font-semibold px-2 py-1 rounded-full hover:bg-black/85" data-testid={`ex-video-badge-${ex.exercise_id}`}>
+                    ▶ Video
+                  </a>
+                )}
+              </div>
+            ) : hasVideo ? (
               <div className="aspect-video bg-[#E8E2D9] overflow-hidden">
                 <iframe
                   src={youtubeEmbedUrl(ex.video_url)}
@@ -631,7 +659,8 @@ export default function ExerciseLibrary() {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}>
