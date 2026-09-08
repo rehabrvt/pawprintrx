@@ -319,19 +319,23 @@ export default function OwnerPortal() {
                   >
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 rounded-xl bg-[#E8E2D9] flex items-center justify-center overflow-hidden flex-shrink-0 relative">
-                        {ex?.media_url ? (
-                          ex.media_type === "video" ? (
-                            <video
-                              src={fileSrc(ex.media_url)}
-                              className="h-full w-full object-cover pointer-events-none"
-                              muted
-                              playsInline
-                              preload="auto"
-                            />
-                          ) : (
-                            <img src={fileSrc(ex.media_url)} alt="" className="h-full w-full object-cover" />
-                          )
-                        ) : <ImageIcon className="text-[#C96A52]" size={18} />}
+                        {(() => {
+                          const thumbImg = (ex?.media || []).find((m) => m.type !== "video")?.url
+                            || (ex?.media_url && ex?.media_type !== "video" ? ex.media_url : null);
+                          if (thumbImg) return <img src={fileSrc(thumbImg)} alt="" className="h-full w-full object-cover" />;
+                          if (ex?.media_url && ex?.media_type === "video") {
+                            return (
+                              <video
+                                src={fileSrc(ex.media_url)}
+                                className="h-full w-full object-cover pointer-events-none"
+                                muted
+                                playsInline
+                                preload="auto"
+                              />
+                            );
+                          }
+                          return <ImageIcon className="text-[#C96A52]" size={18} />;
+                        })()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{ex?.name || it.exercise_id}</p>
@@ -474,26 +478,34 @@ export default function OwnerPortal() {
         <DialogContent className="rounded-2xl max-w-xl max-h-[85vh] overflow-y-auto" data-testid="exercise-view-dialog">
           <DialogHeader><DialogTitle className="font-display text-2xl">{viewExercise?.name || "Exercise"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            {youtubeEmbedUrl(viewExercise?.video_url) ? (
-              <div className="aspect-video bg-[#E8E2D9] rounded-xl overflow-hidden">
-                <iframe
-                  src={youtubeEmbedUrl(viewExercise.video_url)}
-                  title={viewExercise?.name}
-                  className="h-full w-full"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            ) : viewExercise?.media_url ? (
-              <div className="rounded-xl overflow-hidden bg-[#E8E2D9]">
-                {viewExercise.media_type === "video" ? (
-                  <video src={fileSrc(viewExercise.media_url)} className="w-full max-h-72 object-cover" controls />
-                ) : (
-                  <img src={fileSrc(viewExercise.media_url)} alt="" className="w-full max-h-72 object-cover" />
-                )}
-              </div>
-            ) : null}
+            {(() => {
+              const imgs = (viewExercise?.media || []).filter((m) => m.type !== "video");
+              const heroImageUrl = imgs[0]?.url || (viewExercise?.media_url && viewExercise?.media_type !== "video" ? viewExercise.media_url : null);
+              const vidEmbed = youtubeEmbedUrl(viewExercise?.video_url);
+              const heroUploadedVideo = !heroImageUrl && viewExercise?.media_url && viewExercise?.media_type === "video" ? viewExercise.media_url : null;
+              if (!heroImageUrl && !vidEmbed && !heroUploadedVideo) return null;
+              return (
+                <div className="space-y-3">
+                  {heroImageUrl ? (
+                    <img src={fileSrc(heroImageUrl)} alt="" className="w-full max-h-72 object-cover rounded-xl" />
+                  ) : heroUploadedVideo ? (
+                    <video src={fileSrc(heroUploadedVideo)} className="w-full max-h-72 object-cover rounded-xl" controls />
+                  ) : null}
+                  {vidEmbed && (
+                    <div className="aspect-video bg-[#E8E2D9] rounded-xl overflow-hidden">
+                      <iframe
+                        src={vidEmbed}
+                        title={viewExercise?.name}
+                        className="h-full w-full"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {viewExercise?.description && (
               <div>
